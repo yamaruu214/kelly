@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kelly/3">
+<meta name="theme-color" content="#0a0a0a">
+<title>Kelly/3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230a0a0a'/%3E%3Ctext x='90' y='118' font-family='Georgia,serif' font-size='100' font-style='italic' font-weight='700' text-anchor='middle' fill='%23d4ff00'%3EK%3C/text%3E%3C/svg%3E">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #0a0a0a;
+    --bg-2: #141414;
+    --ink: #f4f1ea;
+    --ink-dim: #8a857a;
+    --accent: #d4ff00;
+    --danger: #ff5a3c;
+    --warn: #ffb84d;
+    --line: rgba(244,241,234,0.08);
+  }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Fraunces', Georgia, serif;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background:
+      radial-gradient(circle at 20% 0%, rgba(212,255,0,0.06), transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(255,90,60,0.05), transparent 50%),
+      var(--bg);
+  }
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; opacity: 0.4; z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+  header {
+    padding: 24px 22px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    position: relative; z-index: 2;
+  }
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+  }
+  .logo em { color: var(--accent); font-style: italic; }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-dim);
+  }
+  main {
+    flex: 1;
+    padding: 8px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: relative; z-index: 2;
+    overflow-y: auto;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .field label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .field label .hint { font-size: 9px; color: var(--ink-dim); opacity: 0.7; }
+  .field input {
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    padding: 16px 18px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    background: #1a1a1a;
+  }
+  .field input::placeholder { color: #3a3a3a; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .result {
+    margin-top: 4px;
+    background: linear-gradient(180deg, #161616 0%, #0e0e0e 100%);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 22px 22px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .result::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+  .result-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+  }
+  .result-value {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 64px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--accent);
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  .result-value .pct {
+    font-size: 28px;
+    font-style: italic;
+    color: var(--ink-dim);
+    font-weight: 400;
+  }
+  .result.negative .result-value { color: var(--danger); }
+  .result.warn .result-value { color: var(--warn); }
+  .verdict {
+    margin-top: 12px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.4;
+    opacity: 0.85;
+  }
+  .meta {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+  }
+  .meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .meta-item .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-dim);
+  }
+  .meta-item .v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .bankroll-section {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .bankroll-section label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-dim);
+  }
+  .bankroll-row { display: flex; gap: 10px; align-items: center; }
+  .bankroll-section input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    outline: none;
+    -webkit-appearance: none;
+    padding: 4px 0;
+  }
+  .bankroll-section .stake {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  footer {
+    padding: 10px 22px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-dim);
+    text-align: center;
+    position: relative; z-index: 2;
+  }
+  footer span { color: var(--accent); }
+
+  /* fade-in */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .result, .field, .bankroll-section { animation: rise 0.5s ease-out backwards; }
+  .field:nth-child(1) { animation-delay: 0.05s; }
+  .field:nth-child(2) { animation-delay: 0.1s; }
+  .result { animation-delay: 0.2s; }
+  .bankroll-section { animation-delay: 0.25s; }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<header>
+  <div class="logo">kelly<em>/3</em></div>
+  <div class="tag">value · stake calc</div>
+</header>
+
+<main>
+  <div class="row">
+    <div class="field">
+      <label>Cote réf. <span class="hint">vraie</span></label>
+      <input id="ref" type="text" inputmode="decimal" placeholder="1,76" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Cote pariée <span class="hint">book</span></label>
+      <input id="bet" type="text" inputmode="decimal" placeholder="1,80" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-label">Mise recommandée</div>
+    <div class="result-value"><span id="pct">—</span><span class="pct">%</span></div>
+    <div class="verdict" id="verdict">Entre les deux cotes pour calculer.</div>
+    <div class="meta">
+      <div class="meta-item"><span class="k">Edge</span><span class="v" id="edge">—</span></div>
+      <div class="meta-item"><span class="k">Kelly plein</span><span class="v" id="full">—</span></div>
+      <div class="meta-item"><span class="k">Proba estimée</span><span class="v" id="prob">—</span></div>
+      <div class="meta-item"><span class="k">Value</span><span class="v" id="value">—</span></div>
+    </div>
+  </div>
+
+  <div class="bankroll-section">
+    <label>Bankroll (optionnel)</label>
+    <div class="bankroll-row">
+      <input id="br" type="text" inputmode="decimal" placeholder="1000" autocomplete="off">
+      <span class="stake" id="stake">— €</span>
+    </div>
+  </div>
+</main>
+
+<footer>kelly / 3 · <span>conservateur</span></footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const ref = $('ref'), bet = $('bet'), br = $('br');
+  const pct = $('pct'), verdict = $('verdict'), edge = $('edge'),
+        full = $('full'), prob = $('prob'), value = $('value'),
+        stake = $('stake'), result = $('result');
+
+  // accept comma or dot
+  const parse = v => {
+    if (!v) return NaN;
+    return parseFloat(String(v).replace(',', '.'));
+  };
+  const fmtFR = (n, d=2) => n.toLocaleString('fr-FR', {minimumFractionDigits: d, maximumFractionDigits: d});
+
+  function compute() {
+    const oRef = parse(ref.value);
+    const oBet = parse(bet.value);
+    const bankroll = parse(br.value);
+
+    // reset
+    result.classList.remove('negative', 'warn');
+
+    if (!oRef || !oBet || oRef <= 1 || oBet <= 1) {
+      pct.textContent = '—';
+      verdict.textContent = 'Entre les deux cotes pour calculer.';
+      edge.textContent = full.textContent = prob.textContent = value.textContent = '—';
+      stake.textContent = '— €';
+      return;
+    }
+
+    const p = 1 / oRef;          // proba estimée via cote de réf
+    const q = 1 - p;
+    const b = oBet - 1;          // gain net par unité misée
+    const kellyFull = (b * p - q) / b;
+    const kellyThird = kellyFull / 3;
+    const ev = p * oBet - 1;     // espérance / value
+
+    prob.textContent = fmtFR(p * 100, 1) + ' %';
+    edge.textContent = (ev >= 0 ? '+' : '') + fmtFR(ev * 100, 2) + ' %';
+    full.textContent = fmtFR(kellyFull * 100, 2) + ' %';
+    value.textContent = fmtFR(oBet / oRef, 3);
+
+    if (kellyFull <= 0) {
+      // pas de value : la cote pariée est ≤ à la cote de référence
+      pct.textContent = '0,00';
+      verdict.textContent = 'Aucune value. Ne pas miser : la cote pariée est défavorable.';
+      result.classList.add('negative');
+      stake.textContent = fmtFR(0, 2) + ' €';
+      return;
+    }
+
+    const stakePct = kellyThird * 100;
+    pct.textContent = fmtFR(stakePct, 2);
+
+    if (stakePct < 0.5) {
+      verdict.textContent = 'Value marginale. Mise très faible — à toi de voir si ça vaut le coup.';
+      result.classList.add('warn');
+    } else if (stakePct > 8) {
+      verdict.textContent = 'Edge très élevé. Vérifie tes cotes — méfie-toi des erreurs ou pièges.';
+      result.classList.add('warn');
+    } else {
+      verdict.textContent = 'Value positive. Mise selon Kelly fractionné (÷3).';
+    }
+
+    if (bankroll && bankroll > 0) {
+      stake.textContent = fmtFR(bankroll * kellyThird, 2) + ' €';
+    } else {
+      stake.textContent = '— €';
+    }
+  }
+
+  [ref, bet, br].forEach(el => {
+    el.addEventListener('input', compute);
+    // auto-comma replacement for nicer display while typing
+    el.addEventListener('blur', () => {
+      const n = parse(el.value);
+      if (!isNaN(n) && el.value) el.value = String(el.value).replace('.', ',');
+    });
+  });
+
+  // pre-fill example for first impression
+  // (commented out — laisse vide au démarrage)
+  // ref.value = '1,76'; bet.value = '1,80'; compute();
+</script>
+</body>
+</html>

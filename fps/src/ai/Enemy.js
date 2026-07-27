@@ -225,8 +225,12 @@ const HEARING_RANGE = 45;
 /* --------------------------------------------------------------------- temps */
 const _v0 = new THREE.Vector3(), _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(),
       _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3(), _v5 = new THREE.Vector3();
+/* Firing re-enters the manager's tracers and world trace, so it gets its own
+   scratch set rather than sharing _v0.._v5 with the code it calls into. */
+const _s0 = new THREE.Vector3(), _s1 = new THREE.Vector3(), _s2 = new THREE.Vector3(),
+      _s3 = new THREE.Vector3(), _s4 = new THREE.Vector3();
 const _q0 = new THREE.Quaternion(), _q1 = new THREE.Quaternion();
-const _e0 = new THREE.Euler();
+const _qIdentity = new THREE.Quaternion();
 
 /* ===========================================================================
    Enemy
@@ -274,6 +278,12 @@ class Enemy {
     this.firstBurst = true;   // the deliberate opening miss
     this.suppression = 0;
     this.stateTime = 0;
+    this.skill = 0.4;
+    this.desiredSpeed = 0;
+    this.crouchTarget = 0;
+    this.exposed = true;
+    this.aimTarget = null;
+    this.recoil = 0;
 
     /* navigation */
     this.path = [];
@@ -307,7 +317,6 @@ class Enemy {
       const b = new THREE.Object3D();
       b.position.fromArray(spec.pos);
       b.userData.axis = new THREE.Vector3().fromArray(spec.axis);
-      b.userData.rest = spec.pos.slice();
       const r = REST[spec.name];
       if (r) b.rotation.set(r[0], r[1], r[2]);
       b.userData.restRot = b.rotation.clone();
@@ -335,10 +344,6 @@ class Enemy {
     part('chest', geo.pouch, mat.fabricT, -0.14, -0.05, 0.13, 0, 0, 0.2);
     part('neck', geo.neck, mat.fabric, 0, 0.02, 0);
     part('head', geo.head, mat.fabric, 0, 0.07, 0.005);
-    part('helmet', undefined, undefined, 0, 0, 0);   // placeholder removed below
-
-    // The helmet rides the head bone; there is no separate helmet bone.
-    this.bones.head.remove(this.bones.head.children[this.bones.head.children.length - 1]);
     part('head', geo.helmet, mat.plate, 0, 0.145, -0.012);
 
     for (const s of [['L', 1], ['R', -1]]) {
@@ -393,6 +398,11 @@ class Enemy {
     this.stride = hash1(this.index * 5.5) * TAU;
     this.speed = 0;
     this.crouch = 0;
+    this.crouchTarget = 0;
+    this.desiredSpeed = 0;
+    this.exposed = true;
+    this.aimTarget = null;
+    this.recoil = 0;
     this.lean = 0;
     this.canSeePlayer = false;
     this.losTime = 0;
@@ -422,7 +432,8 @@ class Enemy {
     this.group.quaternion.identity();
     for (const spec of SKELETON) {
       const b = this.bones[spec.name];
-      b.position.fromArray(spec.userData ? spec.pos : spec.pos);
+      b.position.fromArray(spec.pos);
+      b.quaternion.identity();
       b.rotation.copy(b.userData.restRot);
     }
   }
@@ -599,19 +610,20 @@ class Enemy {
       // Peek/re-cover oscillation: stand and shoot, drop and reload the plan.
       this.peeking -= dt;
       if (this.peeking <= 0) {
-        const cycle = this.burstLeft > 0 || this.fireCd > 0;
-        this.peeking = cycle ? 0.15 : lerp(1.5, 0.7, this.skill) * (0.7 + hash1(this.index + this.stateTime | 0) * 0.6);
-        this.exposed = !this.exposed;
+        const midBurst = this.burstLeft > 0;
+        this.peeking = midBurst ? 0.15 : lerp(1.5, 0.7, this.skill) * (0.7 + hash1(this.index + ((this.stateTime * 4) | 0)) * 0.6);
+        if (!midBurst) this.exposed = !this.exposed;
       }
       this.crouchTarget = this.exposed ? 0.15 : 0.95;
       this.lean = this.exposed ? (this.index & 1 ? 0.35 : -0.35) : 0;
     } else {
       this.desiredSpeed = dist > 22 ? 3.6 : 2.0;
       this.crouchTarget = 0;
+      this.lean = 0;
       this.exposed = true;
     }
 
-    if (this.exposed !== false) this._fireLogic(dt, player, dist, 1);
+    if (this.exposed) this._fireLogic(dt, player, dist, 1);
 
     // Long stalemates get broken by moving, which keeps firefights from
     // settling into two men trading shots from the same two corners.
@@ -736,7 +748,8 @@ class Enemy {
         this.burstLeft--;
         this.fireCd = lerp(0.13, 0.085, this.skill);
         if (this.burstLeft === 0) {
-          this.burstCd = lerp(1.7, 0.65, this.skill) * (0.75 + hash1(this.index * 3.1 + this.stateTime | 0) * 0.6) / willingness;
+          this.burstCd = lerp(1.7, 0.65, this.skill) *
+                         (0.75 + hash1(this.index * 3.1 + ((this.stateTime * 4) | 0)) * 0.6) / willingness;
           this.firstBurst = false;
         }
       }
@@ -746,17 +759,18 @@ class Enemy {
     if (this.burstCd <= 0 && this.losTime > lerp(0.55, 0.18, this.skill)) {
       // The squad gate is what stops eight rifles opening up on the same tick.
       if (!this.mgr.requestBurst(this)) return;
-      this.burstLeft = 2 + ((hash1(this.index + this.stateTime) * 3) | 0) + (this.skill > 0.7 ? 1 : 0);
+      this.burstLeft = 2 + ((this.mgr.rng() * 3) | 0) + (this.skill > 0.7 ? 1 : 0);
       this.fireCd = 0;
     }
   }
 
   _shoot(player, dist) {
-    const origin = _v0.copy(this.muzzle.getWorldPosition(_v5));
-    if (!isFinite(origin.x)) origin.copy(this.position).y += 1.4;
+    this.group.updateMatrixWorld(true);
+    const origin = this.muzzle.getWorldPosition(_s0);
+    if (!isFinite(origin.x)) { origin.copy(this.position); origin.y += 1.4; }
 
-    const chest = _v1.copy(player.position); chest.y += 1.25;
-    const dir = _v2.copy(chest).sub(origin).normalize();
+    const chest = _s1.copy(player.position); chest.y += 1.25;
+    const dir = _s2.copy(chest).sub(origin).normalize();
 
     // Accuracy model: cone shrinks as LOS persists, and the opening burst is
     // pushed deliberately wide. Getting shot the instant you round a corner is
@@ -769,8 +783,8 @@ class Enemy {
 
     const a = this.mgr.rng() * TAU;
     const r = Math.sqrt(this.mgr.rng()) * spread;
-    const right = _v3.crossVectors(dir, UP).normalize();
-    const up = _v4.crossVectors(right, dir);
+    const right = _s3.crossVectors(dir, UP).normalize();
+    const up = _s4.crossVectors(right, dir);
     dir.addScaledVector(right, Math.cos(a) * r).addScaledVector(up, Math.sin(a) * r).normalize();
 
     const hitScan = this.mgr.traceShot(origin, dir, 90, player);
@@ -849,7 +863,7 @@ class Enemy {
   _startRagdoll(point, dir, force) {
     this.group.updateMatrixWorld(true);
 
-    const pos = [], prev = [], pin = [];
+    const pos = [], prev = [];
     const grab = (boneName, local) => {
       const b = this.bones[boneName];
       const v = new THREE.Vector3(local[0], local[1], local[2]);
@@ -876,7 +890,6 @@ class Enemy {
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       pos.push(P[i]);
       prev.push(P[i].clone());
-      pin.push(false);
     }
 
     const links = RAGDOLL_LINKS.map(([a, b, stiff]) => ({
@@ -895,7 +908,7 @@ class Enemy {
       prev[i].z -= (this.mgr.rng() - 0.5) * 0.004;
     }
 
-    this.ragdoll = { pos, prev, pin, links, boneQ: new Map() };
+    this.ragdoll = { pos, prev, links };
 
     // Bones now carry world-space transforms, so the group is flattened to the
     // identity and every joint below it can be written in world coordinates.
@@ -932,12 +945,17 @@ class Enemy {
   }
 
   _applyRagdollToBones() {
-    const { pos, boneQ } = this.ragdoll;
-    this.group.updateMatrixWorld(true);
-
+    const pos = this.ragdoll.pos;
     this.bones.pelvis.position.copy(pos[P_PELVIS]);
-    boneQ.clear();
 
+    // Joints with no particle pair of their own go slack first, so the chain
+    // each solved bone is measured against is already settled.
+    for (const n of ['spine', 'neck', 'head', 'handL', 'handR', 'footL', 'footR']) {
+      this.bones[n].quaternion.slerp(_qIdentity, 0.08);
+    }
+
+    // RAGDOLL_BONES is ordered root-first, so a bone's ancestors are already
+    // correct by the time its parent's world rotation is read back.
     for (let i = 0; i < RAGDOLL_BONES.length; i++) {
       const [name, from, to] = RAGDOLL_BONES[i];
       const bone = this.bones[name];
@@ -946,18 +964,11 @@ class Enemy {
       dir.normalize();
 
       const worldQ = _q0.setFromUnitVectors(bone.userData.axis, dir);
-      const parent = bone.parent;
-      const parentQ = boneQ.get(parent) || null;
-      if (parentQ) bone.quaternion.copy(_q1.copy(parentQ).invert().multiply(worldQ));
-      else bone.quaternion.copy(worldQ);
-      boneQ.set(bone, worldQ.clone());
+      bone.parent.updateWorldMatrix(true, false);
+      bone.parent.getWorldQuaternion(_q1);
+      bone.quaternion.copy(_q1.invert().multiply(worldQ));
     }
-
-    // The neck, hands and feet have no particle pair; they simply relax.
-    for (const n of ['spine', 'neck', 'head', 'handL', 'handR', 'footL', 'footR']) {
-      const b = this.bones[n];
-      b.quaternion.slerp(_q0.setFromEuler(_e0.set(0, 0, 0)), 0.06);
-    }
+    this.group.updateMatrixWorld(true);
   }
 
   /* ---------------------------------------------------------------- animation */
@@ -1034,7 +1045,7 @@ class Enemy {
 
   update(dt, player, elapsed) {
     if (this.alive) {
-      this._updatePerception(dt, this.mgr.playerEye(player, _v2.clone()));
+      this._updatePerception(dt, this.mgr.eye);
       this._think(dt, player);
       this._steer(dt, player);
       this._animate(dt, elapsed);
@@ -1215,9 +1226,9 @@ export class EnemyManager {
 
     this._seed = 0x2f6e2b1 >>> 0;
     this._ray = new THREE.Raycaster();
-    this._ray.firstHitOnly = true;
     this._volumes = [];
     this._tmpHit = new THREE.Vector3();
+    this.eye = new THREE.Vector3(0, 1.6, 0);   // player eye, refreshed once per step
 
     this._readLevel();
   }
@@ -1742,6 +1753,7 @@ export class EnemyManager {
     this.elapsed += dt;
     if (player) this.player = player;
 
+    this.playerEye(player, this.eye);
     this._pollWeaponFire(weapons, player);
 
     let alive = 0;

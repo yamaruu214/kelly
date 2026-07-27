@@ -206,12 +206,24 @@ function packORM(ao, rough, metal, size) {
   return out;
 }
 
+/**
+ * Encodes linear albedo to sRGB bytes.
+ *
+ * The palette below is authored as linear reference albedo, and makeTexture
+ * tags the result SRGBColorSpace, so three decodes it on sample. Writing the
+ * values raw meant they were decoded without ever having been encoded, which
+ * gamma-crushed every material: asphalt arrived at 0.007 linear instead of
+ * 0.08, and steel's F0 at 0.009 instead of ~0.5. With diffuse that close to
+ * zero a surface returns almost nothing but a specular reflection of the sky,
+ * which is why every material except sand read cold and dark.
+ */
 function packAlbedo(rgb, size) {
   const out = new Uint8Array(size * size * 4);
+  const encode = v => Math.pow(clamp01(v), 1 / 2.2) * 255;
   for (let i = 0, n = size * size; i < n; i++) {
-    out[i * 4]     = clamp01(rgb[i * 3])     * 255;
-    out[i * 4 + 1] = clamp01(rgb[i * 3 + 1]) * 255;
-    out[i * 4 + 2] = clamp01(rgb[i * 3 + 2]) * 255;
+    out[i * 4]     = encode(rgb[i * 3]);
+    out[i * 4 + 1] = encode(rgb[i * 3 + 1]);
+    out[i * 4 + 2] = encode(rgb[i * 3 + 2]);
     out[i * 4 + 3] = 255;
   }
   return out;
@@ -270,9 +282,15 @@ export const MATERIALS = {
       const pit   = smoothstep(0.14, 0.0, cell.f1) * (cell.id > 0.72 ? 1 : 0);
       // Cracks follow a narrow band *around* a ridge level, not everything above
       // it — without the abs() the mask floods half the surface with blotches.
-      const crack = smoothstep(0.031, 0.0, Math.abs(ridged(u * 6, v * 6, 4, 6) - 0.82));
+      // Crest of a ridged field, not an iso-contour. Thresholding
+      // |field - constant| extracts a level set, and level sets of a smooth 2D
+      // field are closed rings — that produced rounded loops that read as
+      // embossed leather rather than cracks. The crests of a ridged field are
+      // thin and branching, which is what a real crack network looks like, and
+      // the anisotropic periods make them run along the surface, not in circles.
+      const crack = smoothstep(0.82, 1.0, ridged(u * 4, v * 9, 5, 4, 9));
 
-      let h = 0.5 + grain * 0.22 + agg * 0.10 - pit * 0.42 - crack * 0.30;
+      let h = 0.5 + grain * 0.22 + agg * 0.10 - pit * 0.42 - crack * 0.12;
       s.height[i] = h;
 
       // Stretched along v: rain runs down the panel, so the streak must too, so
@@ -280,8 +298,8 @@ export const MATERIALS = {
       // field's measured ceiling (~0.71 here) — the old 1.0 put it past what fbm
       // can reach, throttling the streaks to a third of their intended depth.
       const stain = smoothstep(0.55, 0.74, fbm(u * 11, v * 3, 4, 2, 0.5, 11, 3) * 0.5 + 0.5);
-      const base = MIX([0.44, 0.435, 0.425], [0.30, 0.298, 0.292], stain * 0.75);
-      const c = MIX(base, [0.22, 0.22, 0.225], pit * 0.6 + crack * 0.5);
+      const base = MIX([0.30, 0.297, 0.290], [0.20, 0.198, 0.194], stain * 0.75);
+      const c = MIX(base, [0.13, 0.13, 0.133], pit * 0.6 + crack * 0.5);
       const spec = agg * 0.06;
       s.rgb[i * 3]     = clamp01(c[0] + spec);
       s.rgb[i * 3 + 1] = clamp01(c[1] + spec);
@@ -294,7 +312,7 @@ export const MATERIALS = {
 
   /* Painted steel over a rusting substrate — the paint chips where the
      underlying corrosion has lifted it, which is the tell that sells metal. */
-  paintedMetal(size, tint = [0.30, 0.34, 0.38]) {
+  paintedMetal(size, tint = [0.22, 0.216, 0.208]) {
     return build(size, (u, v, i, s) => {
       const dent  = fbm(u * 7, v * 7, 4, 2, 0.5, 7) * 0.5 + 0.5;
       const rustF = smoothstep(0.52, 0.86, fbm(u * 9, v * 9, 5, 2, 0.5, 9) * 0.5 + 0.5);
@@ -306,9 +324,9 @@ export const MATERIALS = {
 
       s.height[i] = 0.5 + dent * 0.08 - chip * 0.16 - scratch * 0.05;
 
-      const rustCol = MIX([0.36, 0.17, 0.075], [0.52, 0.28, 0.13], fbm(u * 40, v * 40, 3, 2, 0.5, 40) * 0.5 + 0.5);
+      const rustCol = MIX([0.14, 0.065, 0.028], [0.20, 0.105, 0.05], fbm(u * 40, v * 40, 3, 2, 0.5, 40) * 0.5 + 0.5);
       let c = MIX(tint, rustCol, chip);
-      c = MIX(c, [0.55, 0.56, 0.58], scratch * 0.5);
+      c = MIX(c, [0.56, 0.57, 0.58], scratch * 0.5);
       s.rgb[i * 3] = c[0]; s.rgb[i * 3 + 1] = c[1]; s.rgb[i * 3 + 2] = c[2];
 
       s.rough[i] = clamp01(0.45 + chip * 0.50 + dent * 0.10 - scratch * 0.18);
@@ -342,8 +360,8 @@ export const MATERIALS = {
 
       s.height[i] = (1 - mortarMask) * 0.55 + grit * 0.06 + wear * 0.05;
 
-      const brickCol = MIX([0.34, 0.15, 0.11], [0.50, 0.26, 0.19], id * 0.8 + wear * 0.2);
-      const mortarCol = MIX([0.52, 0.51, 0.48], [0.40, 0.395, 0.375], grit);
+      const brickCol = MIX([0.16, 0.07, 0.05], [0.24, 0.13, 0.095], id * 0.8 + wear * 0.2);
+      const mortarCol = MIX([0.24, 0.235, 0.22], [0.18, 0.178, 0.168], grit);
       const c = MIX(brickCol, mortarCol, mortarMask);
       s.rgb[i * 3] = c[0]; s.rgb[i * 3 + 1] = c[1]; s.rgb[i * 3 + 2] = c[2];
 
@@ -374,8 +392,8 @@ export const MATERIALS = {
 
       s.height[i] = 0.5 + dune * 0.04 + ripple * 0.055 + grit * 0.03 + peb * 0.10;
 
-      const c = MIX(MIX([0.52, 0.44, 0.32], [0.63, 0.55, 0.41], ripple * 0.62 + dune * 0.20),
-                    [0.40, 0.37, 0.32], peb);
+      const c = MIX(MIX([0.34, 0.29, 0.21], [0.41, 0.36, 0.27], ripple * 0.62 + dune * 0.20),
+                    [0.21, 0.195, 0.17], peb);
       const sparkle = grit * 0.05;
       s.rgb[i * 3] = c[0] + sparkle; s.rgb[i * 3 + 1] = c[1] + sparkle; s.rgb[i * 3 + 2] = c[2] + sparkle;
 
@@ -390,21 +408,28 @@ export const MATERIALS = {
       const agg  = fbm(u * 130, v * 130, 3, 2, 0.5, 130) * 0.5 + 0.5;
       const cell = voronoi(u, v, 26);
       const chunk = smoothstep(0.30, 0.06, cell.f1);
-      const crack = smoothstep(0.05, 0.0, Math.abs(ridged(u * 5, v * 5, 4, 5) - 0.55));
+      // Crest of a ridged field, not an iso-contour. Thresholding
+      // |field - constant| extracts a level set, and level sets of a smooth 2D
+      // field are closed rings — that produced rounded loops that read as
+      // embossed leather rather than cracks. The crests of a ridged field are
+      // thin and branching, which is what a real crack network looks like, and
+      // the anisotropic periods make them run along the surface, not in circles.
+      const crack = smoothstep(0.80, 1.0, ridged(u * 3, v * 11, 5, 3, 11));
       // Two polished bands where tyres have burnished the aggregate smooth.
       const track = Math.max(smoothstep(0.09, 0.0, Math.abs(u - 0.30)),
                              smoothstep(0.09, 0.0, Math.abs(u - 0.70)));
 
-      s.height[i] = 0.5 + agg * 0.09 + chunk * 0.10 - crack * 0.34 - track * 0.05;
+      s.height[i] = 0.5 + agg * 0.09 + chunk * 0.04 - crack * 0.14 - track * 0.05;
 
       const c = MIX(MIX([0.075, 0.075, 0.080], [0.155, 0.155, 0.162], agg),
-                    [0.20, 0.20, 0.205], chunk * 0.5);
-      const t = MIX(c, [0.13, 0.13, 0.135], track * 0.6);
+                    [0.14, 0.14, 0.143], chunk * 0.5);
+      const worn = MIX(c, [0.09, 0.09, 0.093], track * 0.6);
+      const t = MIX(worn, [0.045, 0.045, 0.048], crack * 0.8);
       s.rgb[i * 3] = t[0]; s.rgb[i * 3 + 1] = t[1]; s.rgb[i * 3 + 2] = t[2];
 
       s.rough[i] = clamp01(0.86 - track * 0.34 + agg * 0.08 + crack * 0.06);
       s.metal[i] = 0;
-    }, { normalStrength: 2.2, aoRadius: 3, aoStrength: 1.0 });
+    }, { normalStrength: 2.2, aoRadius: 3, aoStrength: 0.55 });
   },
 
   /* Weathered plank timber. */
@@ -435,9 +460,9 @@ export const MATERIALS = {
 
       s.height[i] = 0.5 + rings * 0.11 + fiber * 0.05 - seam * 0.55 - knot * 0.12;
 
-      const c0 = MIX([0.235, 0.155, 0.090], [0.395, 0.285, 0.180], rings);
-      const c1 = MIX(c0, [0.14, 0.09, 0.05], knot);
-      const c  = MIX(c1, [0.07, 0.05, 0.035], seam);
+      const c0 = MIX([0.11, 0.072, 0.042], [0.20, 0.145, 0.09], rings);
+      const c1 = MIX(c0, [0.065, 0.042, 0.023], knot);
+      const c  = MIX(c1, [0.032, 0.023, 0.016], seam);
       const g = fiber * 0.045;
       s.rgb[i * 3] = c[0] + g; s.rgb[i * 3 + 1] = c[1] + g; s.rgb[i * 3 + 2] = c[2] + g;
 
@@ -458,8 +483,8 @@ export const MATERIALS = {
 
       s.height[i] = wave * 0.72 + dent * 0.06 - rust * 0.05;
 
-      const steel = MIX([0.42, 0.44, 0.46], [0.30, 0.32, 0.34], dent);
-      const rusty = MIX([0.40, 0.19, 0.08], [0.28, 0.13, 0.06], streak);
+      const steel = MIX([0.52, 0.54, 0.56], [0.40, 0.42, 0.44], dent);
+      const rusty = MIX([0.16, 0.08, 0.035], [0.10, 0.05, 0.022], streak);
       const c = MIX(steel, rusty, rust);
       s.rgb[i * 3] = c[0]; s.rgb[i * 3 + 1] = c[1]; s.rgb[i * 3 + 2] = c[2];
 
@@ -469,7 +494,7 @@ export const MATERIALS = {
   },
 
   /* Ballistic nylon / webbing for gear and enemy kit. */
-  fabric(size, tint = [0.20, 0.21, 0.17]) {
+  fabric(size, tint = [0.085, 0.09, 0.065]) {
     return build(size, (u, v, i, s) => {
       // Over-under weave: two offset square waves multiplied together.
       const wu = Math.sin(u * Math.PI * 2 * 130);
@@ -480,7 +505,7 @@ export const MATERIALS = {
 
       s.height[i] = 0.5 + weave * 0.30 + fuzz * 0.06;
 
-      const c = MIX(tint, MIX(tint, [0.55, 0.54, 0.50], 0.5), wear * 0.6 + weave * 0.2);
+      const c = MIX(tint, MIX(tint, [0.26, 0.255, 0.235], 0.5), wear * 0.6 + weave * 0.2);
       s.rgb[i * 3] = c[0]; s.rgb[i * 3 + 1] = c[1]; s.rgb[i * 3 + 2] = c[2];
       s.rough[i] = clamp01(0.88 - weave * 0.10 + fuzz * 0.08);
       s.metal[i] = 0;
@@ -499,8 +524,8 @@ export const MATERIALS = {
 
       s.height[i] = 0.5 + grain * 0.05 + tool * 0.03 - wear * 0.02;
 
-      const base = MIX([0.085, 0.088, 0.094], [0.135, 0.138, 0.145], grain);
-      const c = MIX(base, [0.46, 0.47, 0.49], wear);   // rubbed-through steel
+      const base = MIX([0.155, 0.158, 0.168], [0.20, 0.203, 0.213], grain);
+      const c = MIX(base, [0.44, 0.45, 0.47], wear);   // rubbed-through steel
       s.rgb[i * 3] = c[0]; s.rgb[i * 3 + 1] = c[1]; s.rgb[i * 3 + 2] = c[2];
 
       s.rough[i] = clamp01(0.52 - wear * 0.34 + grain * 0.10 + tool * 0.05);
@@ -516,7 +541,7 @@ export const MATERIALS = {
  * the loading bar keeps painting on a phone instead of locking the main thread.
  */
 export class TextureLibrary {
-  constructor(size = 512, anisotropy = 8) {
+  constructor(size = 512, anisotropy = 16) {
     this.size = size;
     this.aniso = anisotropy;
     this.cache = new Map();
@@ -544,7 +569,7 @@ export class TextureLibrary {
       ['wood',       () => MATERIALS.wood(this.size),                            1],
       ['corrugated', () => MATERIALS.corrugated(this.size),                      1],
       ['metal',      () => MATERIALS.paintedMetal(this.size),                    1],
-      ['metalOlive', () => MATERIALS.paintedMetal(this.size, [0.20, 0.22, 0.15]),1],
+      ['metalOlive', () => MATERIALS.paintedMetal(this.size, [0.085, 0.093, 0.062]),1],
       ['fabric',     () => MATERIALS.fabric(this.size),                          1],
       ['gunmetal',   () => MATERIALS.gunmetal(Math.min(this.size, 512)),         1],
     ];

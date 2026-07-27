@@ -294,14 +294,21 @@ void main(){
                + 0.16 * sin(a * 19.0 + uTime * 0.05);
   shafts = pow(clamp(shafts, 0.0, 1.4), 2.6);
 
-  float radial = exp(-r * 2.3) * smoothstep(1.0, 0.12, r);
+  /* Shafts have to reach well outside the sun's own glow to be seen at all. ACES
+     is flat to within a code value or two everywhere the core sits, so structure
+     drawn there cannot survive the curve however bright it is made; only sky far
+     enough off-sun to still be on the linear part of the tonemap can show it.
+     At 2.3 the shafts were 30x weaker than the core by r=0.7 and never got out. */
+  float radial = exp(-r * 1.35) * smoothstep(1.0, 0.12, r);
   float glow = exp(-r * 4.5);
 
   // Feathered to zero at the quad edge — otherwise the billboard's silhouette
   // is visible as a square of haze the moment the sun is off-centre.
   float mask = smoothstep(1.0, 0.55, r);
 
-  vec3 col = uColor * (glow * 0.55 + shafts * radial * 0.85) * uIntensity * mask;
+  // The glow carried most of the energy and it is precisely the featureless
+  // white core the art direction is objecting to; the shafts pay for it instead.
+  vec3 col = uColor * (glow * 0.34 + shafts * radial * 0.85) * uIntensity * mask;
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -396,7 +403,7 @@ export class Sky {
     // 3.0 rather than 3.2 because the elevation change already multiplied what
     // lands on the ground plane by 1.7x, and sun-facing walls took none of that
     // increase — they would be the first thing to clip if the key went up too.
-    this.sunLight = new THREE.DirectionalLight(0xffd2a0, 3.3);
+    this.sunLight = new THREE.DirectionalLight(0xffd2a0, 5.6);
     this.sunLight.castShadow = !!settings.shadows;
     scene.add(this.sunLight);
     scene.add(this.sunLight.target);
@@ -412,7 +419,7 @@ export class Sky {
     // surface visibly cyan. The level is one term though, not two — at 0.26 the
     // shadows sat below 4/255 and the frame had no midtones between them and
     // the sunlit sand.
-    this.fillLight = new THREE.HemisphereLight(0xa6b5bd, 0x50463a, 0.28);
+    this.fillLight = new THREE.HemisphereLight(0xb9bcb8, 0x50463a, 0.34);
     scene.add(this.fillLight);
 
     // Light-space basis, used to snap the shadow frustum to whole texels.
@@ -495,7 +502,11 @@ export class Sky {
       // elevation change: sunE rises by half again between 15° and 26°, and the
       // sky was already clipping. The exposure lift the post chain applies is
       // meant to land on the ground plane, not on a sky that has no headroom.
-      uSkyScale: { value: 0.030 },
+      // The frame was bimodal because sunlit ground sat 1.5 stops under while
+      // the sky clipped 2 stops over — an 11:1 ratio no tone curve can hold.
+      // Closing it at the source beats reaching for autoexposure, which would
+      // hunt every time the player looked up.
+      uSkyScale: { value: 0.011 },
       // 0.27° is the real solar disc; at 0.9° it covered eleven times the solid
       // angle and bloom smeared it over a third of the sky. Doubling the radiance
       // keeps the peak reading as the sun while the total flux into the bright
@@ -584,7 +595,10 @@ export class Sky {
     // 0.0042: at 0.0062 the far half of the map was three-quarters haze, so the
     // sand's own hue was gone long before the horizon and any mismatch in the
     // haze tint became the entire colour of the distance.
-    scene.fog = new THREE.FogExp2(0x000000, 0.0042);
+    // 0.0042 left only 16% opacity at 100m, so the ground plane's far edge cut a
+    // hard line against the sky. Haze has to sit between surface and sky in
+    // value — never above both, which reads as inverted depth.
+    scene.fog = new THREE.FogExp2(0x000000, 0.011);
     scene.fog.color.copy(near);
     this.fog = scene.fog;
     patchAerialFog(warmFar, coolFar, this.sunDirection,
@@ -625,7 +639,7 @@ export class Sky {
     scene.environment = this.envMap;
     // The IBL is the only thing lighting a surface that faces neither the key nor
     // much of the upper hemisphere. At 0.6 those surfaces were black holes.
-    scene.environmentIntensity = 0.68;
+    scene.environmentIntensity = 0.55;
   }
 
   /**
@@ -705,7 +719,7 @@ export class Sky {
         uTime: { value: 0 },
         // Additive, so it scales with exposure for free; 0.30 was set against a
         // frame the post chain now renders most of a stop brighter.
-        uIntensity: { value: 0.18 },
+        uIntensity: { value: 0.34 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,

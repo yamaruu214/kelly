@@ -24,7 +24,7 @@ import { makeStandardMaterial, fbm } from './Textures.js';
    8.33 cm courses, 16 corrugations over 1.05 m gives a 6.5 cm pitch. */
 const TILE = {
   concrete: 2.6, brick: 2.0, sand: 6.0, asphalt: 6.0, wood: 1.3,
-  corrugated: 1.05, metal: 1.6, metalOlive: 2.2, fabric: 0.9, gunmetal: 0.7,
+  corrugated: 1.6, metal: 1.6, metalOlive: 2.2, fabric: 0.9, gunmetal: 0.7,
 };
 
 /* Impact FX only care about the physical family, not which of the ten library
@@ -651,7 +651,10 @@ export class Level {
   /* ------------------------------------------------------------- terrain */
 
   _buildTerrain() {
-    const SIZE = 200, SEG = 112;
+    // 200m put the plane's edge inside visible range, so it read as a razor
+    // straight cut against the sky. 340m is beyond where the fog fully closes,
+    // at the same segment count — the extra span is skirt, not more detail.
+    const SIZE = 340, SEG = 112;
     const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG).rotateX(-Math.PI / 2);
     const pos = g.attributes.position, uv = g.attributes.uv;
     const col = new Float32Array(pos.count * 3);
@@ -1537,11 +1540,12 @@ export class Level {
     this._tuft = makeTuftTexture();
     this._tuft.anisotropy = this.settings.maxAnisotropy || 4;
     const mat = new THREE.MeshStandardMaterial({
-      map: this._tuft, alphaTest: 0.5, side: THREE.DoubleSide,
+      map: this._tuft, alphaTest: 0.35, side: THREE.DoubleSide,
       roughness: 0.95, metalness: 0, color: 0xd9cba8,
     });
     this._instanced('sand', geo, list, {
-      material: mat, cast: false, receive: false, raycast: false, surface: 'sand',
+      material: mat, cast: this.settings.name !== 'LOW', receive: false,
+      raycast: false, surface: 'sand',
     });
   }
 

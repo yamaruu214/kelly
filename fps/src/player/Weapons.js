@@ -883,9 +883,9 @@ export class WeaponSystem {
       // sliver of dielectric gives the surface a 4% specular floor its albedo
       // cannot. Raising the albedo instead would just read as grey plastic.
       gun: this._mat('gunmetal', {
-        repeat: 3, repeatY: 1.2, metalness: 0.65, roughness: 0.82, envMapIntensity: 2.6,
+        repeat: 3, repeatY: 1.2, metalness: 0.65, roughness: 0.82, envMapIntensity: 1.3,
       }),
-      worn: this._mat('metal', { repeat: 4, repeatY: 2, color: 0xd6dce4, roughness: 0.82, envMapIntensity: 2.0 }),
+      worn: this._mat('metal', { repeat: 4, repeatY: 2, color: 0xe0dcd4, roughness: 0.82, envMapIntensity: 1.2 }),
       // Every tint below is near-white on purpose. The maps already carry their
       // own dark albedo, so the old dark tints multiplied it a second time and
       // put the furniture at 3/255 — which is most of why the viewmodel measured
@@ -896,7 +896,7 @@ export class WeaponSystem {
       // Tactical glove: fully rough so it never flashes a specular, and pushed
       // cooler than the furniture so the hands read as a separate object rather
       // than as more weapon.
-      glove: this._mat('fabric', { repeat: 7, color: 0xc4cad8, metalness: 0.0, roughness: 1.0, envMapIntensity: 1.1 }),
+      glove: this._mat('fabric', { repeat: 7, color: 0xd8cfc0, metalness: 0.0, roughness: 1.0, envMapIntensity: 1.1 }),
       glass: new THREE.MeshStandardMaterial({
         color: 0x142838, roughness: 0.06, metalness: 0.0,
         transparent: true, opacity: 0.42, envMapIntensity: 2.2, side: THREE.DoubleSide,

@@ -40,6 +40,15 @@ const _nmat = new THREE.Matrix3();
 const _ray = new THREE.Raycaster();
 const SPRING_AXES = [['z', 'vz'], ['p', 'vp'], ['r', 'vr']];
 
+/* Hand rig scratch, kept apart from the firing scratch above because the
+   support hand is placed every frame while a trace may be in flight. */
+const _hx = new THREE.Vector3();
+const _hy = new THREE.Vector3();
+const _hz = new THREE.Vector3();
+const _hm = new THREE.Matrix4();
+const _hp = new THREE.Vector3();
+const _hq = new THREE.Quaternion();
+
 /* ========================================================================== */
 /*                              geometry helpers                              */
 /* ========================================================================== */
@@ -536,6 +545,129 @@ function buildGrenade(mats) {
 }
 
 /* ========================================================================== */
+/*                              gloved hands                                  */
+/* ========================================================================== */
+
+/**
+ * Turns two vectors read straight off a weapon model — the axis the fingers
+ * stack along (index end towards -Z, wrist out past +Z) and the direction the
+ * palm sits in — into a placement for a hand. Deriving the frame is the whole
+ * point: hand-authored Euler triples are how a hand ends up gripping air two
+ * centimetres off the grip, and they rot the moment a grip moves 3mm.
+ */
+function gripFrame(anchor) {
+  _hz.fromArray(anchor.axis).normalize();
+  _hx.fromArray(anchor.palm).normalize().negate();          // the palm slab lives at -X
+  _hx.addScaledVector(_hz, -_hx.dot(_hz)).normalize();      // in case the anchor is sloppy
+  _hy.crossVectors(_hz, _hx);
+  return {
+    pos: new THREE.Vector3().fromArray(anchor.center),
+    quat: new THREE.Quaternion().setFromRotationMatrix(_hm.makeBasis(_hx, _hy, _hz)),
+  };
+}
+
+/**
+ * One gloved hand as a C-clamp around its local +Z: four fingers stacked along
+ * Z, the palm slab at -X, the fingertips arcing over +Y and closing back at +X.
+ *
+ * `left` mirrors the LAYOUT through the XZ plane rather than scaling the node by
+ * -1 — a negative determinant would invert every normal in the merge, and this
+ * rig has no way to draw backfaces. Mirroring y also negates any rotation about
+ * x and z, which is why every primitive goes through the one local helper.
+ */
+function buildHand(mats, o) {
+  const f = o.left ? -1 : 1;
+  const R = o.radius;
+  const r = new Rack();
+  const b = (w, h, d, mat, px, py, pz, rx = 0, ry = 0, rz = 0, bev = 0.0026) =>
+    r.box(w, h, d, mat, px, py * f, pz, rx * f, ry, rz * f, bev);
+
+  const z0 = -0.030, pitch = 0.021;     // index finger, then one finger per 21mm
+
+  // Palm in three planes — back slab, the web closing over the top, the heel
+  // below. One slab would read as a card; three catch light at three angles.
+  b(0.028, 0.062, 0.104, 'glove', -(R + 0.014), 0.002, 0.022);
+  b(0.040, 0.026, 0.076, 'glove', -(R - 0.002), R + 0.008, 0.002, 0, 0, -0.16);
+  b(0.030, 0.030, 0.070, 'glove', -(R + 0.008), -(R - 0.004), 0.016, 0, 0, 0.18);
+
+  for (let i = 0; i < 4; i++) {
+    const z = z0 + i * pitch;
+    const t = 1 - i * 0.08;             // the little finger is the slimmest
+
+    if (i === 0 && o.index) {
+      // Trigger finger, laid onto the trigger face instead of curled into the
+      // fist: a fist with no separated index finger reads as a mitten. The two
+      // segments are interpolated from the knuckle to the trigger so the reach
+      // stays correct across weapons whose triggers sit at different offsets.
+      const kx = -0.004, ky = R + 0.011;
+      const ang = Math.atan2(o.index.y - ky, o.index.x - kx);
+      const seg = Math.max(0.016, Math.hypot(o.index.x - kx, o.index.y - ky) * 0.62);
+      b(seg, 0.020, 0.019, 'glove', lerp(kx, o.index.x, 0.28), lerp(ky, o.index.y, 0.28),
+        lerp(z, o.index.z, 0.40), 0, 0, ang);
+      b(seg, 0.018, 0.018, 'glove', lerp(kx, o.index.x, 0.74), lerp(ky, o.index.y, 0.74),
+        lerp(z, o.index.z, 0.85), 0, 0, ang * 0.8);
+      continue;
+    }
+
+    b(0.044, 0.020 * t, 0.019, 'glove', -0.002, R + 0.010, z, 0, 0, -0.12);
+    // The distal segment stops short of coming back up the far side: on a
+    // handguard that extra 15mm of fingertip is what would climb into the
+    // bottom of the sight picture at full ADS.
+    b(0.019, 0.032 * t, 0.018, 'glove', R + 0.010, -0.008, z, 0, 0, 0.42);
+  }
+
+  // Thumb wraps up and forward past the index knuckle. It stays inside the
+  // finger span: run it further along the grip axis and on a 97mm pistol grip it
+  // comes out through the top of the receiver.
+  b(0.026, 0.023, 0.030, 'glove', -R + 0.008, R - 0.002, z0 + 0.002, 0.26);
+  b(0.024, 0.020, 0.026, 'glove', -R + 0.022, R + 0.003, z0 - 0.016, 0.48);
+
+  // Knuckle guard: a second, darker material across the proximal segments. It
+  // costs one extra draw call and buys the only large tonal break on the hand.
+  b(0.048, 0.009, 0.082, 'rubber', -0.002, R + 0.022, 0.002);
+
+  // Where the forearm leaves the hand is role-dependent: a firing hand's wrist
+  // continues down the grip axis, a support hand's exits the palm and drops
+  // away towards the off shoulder. Both are keyed off R so a fatter grip moves
+  // the cuff with it. Added raw — a lathe is symmetric, so it needs no mirror.
+  const ap = o.left ? [-(R + 0.012), -0.004, 0.046] : [-0.010, 0.004, 0.056];
+  const ar = o.left ? [2.11, 0, 0.6127] : [1.14, 0, 0];
+  const L = 0.19;
+  r.add(latheGeo([
+    [0.0, 0], [R + 0.010, 0.003], [R + 0.014, 0.030],
+    [R + 0.016, L * 0.55], [R + 0.024, L * 0.96], [0.0, L],
+  ], 12), 'glove', ap[0], ap[1], ap[2], ar[0], ar[1], ar[2]);
+  r.add(latheGeo([
+    [0.0, -0.006], [R + 0.015, -0.006], [R + 0.018, 0.006], [R + 0.014, 0.018], [0.0, 0.018],
+  ], 12), 'rubber', ap[0], ap[1], ap[2], ar[0], ar[1], ar[2]);
+
+  return r.build(mats);
+}
+
+/**
+ * Both hands for one weapon, plus the alternate placement the support hand uses
+ * while it is riding the magazine. Returned as loose nodes so the caller can
+ * parent them inside the weapon group and inherit every existing animation.
+ */
+function buildHands(mats, spec) {
+  const restGrip = gripFrame(spec.grip);
+  const index = new THREE.Vector3().fromArray(spec.grip.trigger)
+    .sub(restGrip.pos).applyQuaternion(_hq.copy(restGrip.quat).invert());
+
+  const grip = buildHand(mats, { radius: spec.grip.radius, index });
+  grip.position.copy(restGrip.pos);
+  grip.quaternion.copy(restGrip.quat);
+
+  const rest = gripFrame(spec.support);
+  const mag = gripFrame(spec.mag);
+  const support = buildHand(mats, { radius: spec.support.radius, left: true });
+  support.position.copy(rest.pos);
+  support.quaternion.copy(rest.quat);
+
+  return { grip, support, rest, mag };
+}
+
+/* ========================================================================== */
 /*                              weapon definitions                            */
 /* ========================================================================== */
 
@@ -556,6 +688,18 @@ const WEAPONS = [
       kickBack: 0.020, rise: 0.055, roll: 0.030, snap: 0.72,
     },
     reload: 2.10, reloadEmpty: 2.60,
+    // Hand anchors are lifted straight out of buildRifle's coordinates: the
+    // grip axis runs from the top of the pistol grip to its toe, `palm` points
+    // at the backstrap, and the support anchor sits under the handguard low
+    // enough that no fingertip climbs into the red dot at full ADS.
+    hands: {
+      grip: {
+        center: [0, -0.140, 0.008], axis: [0, -0.957, 0.290],
+        palm: [0, 0.290, 0.957], trigger: [0, -0.126, -0.030], radius: 0.019,
+      },
+      support: { center: [0, -0.086, -0.350], axis: [0, 0, 1], palm: [-1, -0.26, 0], radius: 0.022 },
+      mag: { center: [0, -0.178, -0.100], axis: [0, -1, 0], palm: [-0.5, 0, -0.87] },
+    },
   },
   {
     id: 'smg', name: 'MP5A5', build: buildSMG, sound: 'smg',
@@ -570,6 +714,16 @@ const WEAPONS = [
       kickBack: 0.015, rise: 0.042, roll: 0.024, snap: 0.66,
     },
     reload: 2.05, reloadEmpty: 2.55,
+    hands: {
+      grip: {
+        center: [0, -0.128, -0.051], axis: [0, -0.966, 0.257],
+        palm: [0, 0.257, 0.966], trigger: [0, -0.112, -0.070], radius: 0.018,
+      },
+      // Sits lower than the handguard's own radius suggests: the drum sight's
+      // aperture is wide, so the hand has to clear a 9° cone, not a 4° one.
+      support: { center: [0, -0.084, -0.300], axis: [0, 0, 1], palm: [-1, -0.26, 0], radius: 0.024 },
+      mag: { center: [0, -0.150, -0.164], axis: [0, -1, 0], palm: [-0.5, 0, -0.87] },
+    },
   },
   {
     id: 'dmr', name: 'SR-25', build: buildSniper, sound: 'sniper',
@@ -584,6 +738,15 @@ const WEAPONS = [
       kickBack: 0.048, rise: 0.135, roll: 0.055, snap: 0.80,
     },
     reload: 2.35, reloadEmpty: 2.85,
+    hands: {
+      grip: {
+        center: [0, -0.158, 0.009], axis: [0, -0.950, 0.313],
+        palm: [0, 0.313, 0.950], trigger: [0, -0.146, -0.036], radius: 0.020,
+      },
+      // Forward of the folded bipod, or the fingers pass straight through it.
+      support: { center: [0, -0.096, -0.345], axis: [0, 0, 1], palm: [-1, -0.26, 0], radius: 0.026 },
+      mag: { center: [0, -0.180, -0.108], axis: [0, -1, 0], palm: [-0.5, 0, -0.87] },
+    },
   },
 ];
 
@@ -680,12 +843,19 @@ export class WeaponSystem {
     // tone-mapped with the world, so pre-ACES values above ~1.5 read as chalk.
     const key = new THREE.DirectionalLight(0xfff2e0, 1.35);
     key.position.set(0.55, 1.0, 0.75);
-    const fill = new THREE.DirectionalLight(0x93b0d8, 0.45);
+    const fill = new THREE.DirectionalLight(0x93b0d8, 0.55);
     fill.position.set(-0.9, -0.15, 0.45);
-    const rim = new THREE.DirectionalLight(0xffffff, 0.75);
+    // The rim is structural, not garnish. On a surface this dark it is the only
+    // thing that puts a line between the top of the receiver and the sky.
+    const rim = new THREE.DirectionalLight(0xffffff, 1.6);
     rim.position.set(-0.35, 0.35, -1.0);
     const amb = new THREE.HemisphereLight(0xa8c4e8, 0x1a1712, 0.25);
     this.viewScene.add(key, fill, rim, amb);
+    // A metalness-1 surface has no diffuse term whatsoever, so for the receiver
+    // and barrel the IBL is not an addition to the shading — it IS the shading.
+    // The world runs its env at 0.6; at that level the viewmodel has nothing to
+    // reflect and collapses into a silhouette no directional light can rescue.
+    this.viewScene.environmentIntensity = 1.6;
     this.viewScene.environment = this.scene?.environment || null;
   }
 
@@ -704,13 +874,29 @@ export class WeaponSystem {
     const flash = flashTexture();
     this._flashTex = flash;
     return {
-      gun: this._mat('gunmetal', { repeat: 3, envMapIntensity: 1.25 }),
-      worn: this._mat('metal', { repeat: 4, color: 0x8d9299, roughness: 0.85, envMapIntensity: 1.5 }),
-      // Polymer furniture: same synthesised surface, but forced dielectric and
-      // rough so it never picks up the receiver's steel highlight.
-      poly: this._mat('gunmetal', { repeat: 5, color: 0x2b2e2c, metalness: 0.0, roughness: 1.25 }),
-      wood: this._mat('wood', { repeat: 2, color: 0x9a7a52, metalness: 0.0, roughness: 1.0 }),
-      rubber: this._mat('fabric', { repeat: 3, color: 0x2a2a28, metalness: 0.0, roughness: 1.15 }),
+      // Two things carry this material. envMapIntensity, because a 0.09 albedo
+      // reflects 9% of what it sees and the IBL is all it gets; and repeatY well
+      // below repeat, which stretches gunmetal's tool-mark roughness along the
+      // length of the receiver and barrel so the highlight arrives as a gradient
+      // instead of tiling noise. metalness stops short of 1 on purpose:
+      // parkerising is a phosphate conversion coat, not bare steel, and that
+      // sliver of dielectric gives the surface a 4% specular floor its albedo
+      // cannot. Raising the albedo instead would just read as grey plastic.
+      gun: this._mat('gunmetal', {
+        repeat: 3, repeatY: 1.2, metalness: 0.65, roughness: 0.82, envMapIntensity: 2.6,
+      }),
+      worn: this._mat('metal', { repeat: 4, repeatY: 2, color: 0xd6dce4, roughness: 0.82, envMapIntensity: 2.0 }),
+      // Every tint below is near-white on purpose. The maps already carry their
+      // own dark albedo, so the old dark tints multiplied it a second time and
+      // put the furniture at 3/255 — which is most of why the viewmodel measured
+      // as a black cutout. These now shift hue and leave the level alone.
+      poly: this._mat('gunmetal', { repeat: 5, repeatY: 2.5, color: 0xd8e0d4, metalness: 0.0, roughness: 1.15 }),
+      wood: this._mat('wood', { repeat: 2, color: 0xead6b8, metalness: 0.0, roughness: 1.0 }),
+      rubber: this._mat('fabric', { repeat: 3, color: 0xdedcd6, metalness: 0.0, roughness: 1.15 }),
+      // Tactical glove: fully rough so it never flashes a specular, and pushed
+      // cooler than the furniture so the hands read as a separate object rather
+      // than as more weapon.
+      glove: this._mat('fabric', { repeat: 7, color: 0xc4cad8, metalness: 0.0, roughness: 1.0, envMapIntensity: 1.1 }),
       glass: new THREE.MeshStandardMaterial({
         color: 0x142838, roughness: 0.06, metalness: 0.0,
         transparent: true, opacity: 0.42, envMapIntensity: 2.2, side: THREE.DoubleSide,
@@ -723,7 +909,9 @@ export class WeaponSystem {
         map: flash, color: 0xffd9a0, blending: THREE.AdditiveBlending,
         transparent: true, depthWrite: false, depthTest: false, toneMapped: false, side: THREE.DoubleSide,
       }),
-      brass: new THREE.MeshStandardMaterial({ color: 0xb08b3a, roughness: 0.32, metalness: 1.0 }),
+      brass: new THREE.MeshStandardMaterial({
+        color: 0xb08b3a, roughness: 0.32, metalness: 1.0, envMapIntensity: 1.8,
+      }),
     };
   }
 
@@ -731,11 +919,17 @@ export class WeaponSystem {
     this.weapons = WEAPONS.map(def => {
       const built = def.build(this._materials);
       built.group.visible = false;
+      // Hands live INSIDE the weapon group rather than beside it. That way they
+      // inherit the rig pose, the recoil node and the visible flag for free, and
+      // not one line of the existing animation code has to learn they exist.
+      const hands = buildHands(this._materials, def.hands);
+      built.group.add(hands.grip, hands.support);
       this.recoilNode.add(built.group);
       return {
         def,
         group: built.group,
         parts: built.parts,
+        hands,
         muzzle: built.muzzle,
         eject: built.eject,
         state: {
@@ -859,6 +1053,8 @@ export class WeaponSystem {
       if (p.mag) { p.mag.position.set(0, 0, 0); p.mag.rotation.set(0, 0, 0); p.mag.visible = true; }
       if (p.charge) p.charge.position.z = 0;
       if (p.bolt) p.bolt.position.z = 0;
+      w.hands.support.visible = true;
+      this._placeSupportHand(w, 0);
     }
   }
 
@@ -1344,6 +1540,7 @@ export class WeaponSystem {
     this.rig.rotation.z = damp(this.rig.rotation.z, rz, follow, dt);
 
     this._animateParts();
+    this._animateSupportHand();      // after _animateParts: it reads the mag's pose
     this._animateKnife();
     this._animateHandGrenade();
   }
@@ -1442,6 +1639,53 @@ export class WeaponSystem {
       p.charge.position.z = 0;
       if (p.bolt) p.bolt.position.z = 0;
     }
+  }
+
+  /**
+   * The support hand leaves the handguard for the magwell and back. It reads the
+   * magazine's live transform rather than duplicating the reload timings, so the
+   * two can never drift apart no matter how the mag choreography is retuned.
+   */
+  _animateSupportHand() {
+    const w = this.weapon;
+    const hand = w.hands.support;
+
+    // The off hand is elsewhere for a knife swing or a grenade, and both of
+    // those already put their own model in frame — a third hand on the
+    // handguard would be the tell, not the absence of one.
+    if (this._meleeT > 0 || this._grenadeHeld) { hand.visible = false; return; }
+
+    let k = 0;
+    if (this._reloadT > 0) {
+      const t = 1 - this._reloadT / this._reloadDur;
+      k = t < 0.14 ? 0
+        : t < 0.20 ? (t - 0.14) / 0.06
+        : t < 0.60 ? 1
+        : t < 0.70 ? 1 - (t - 0.60) / 0.10
+        : 0;
+      k = k * k * (3 - 2 * k);
+      // Hidden exactly while the magazine is, because it is off-screen with it.
+      hand.visible = !(w.parts.mag && !w.parts.mag.visible);
+    } else {
+      hand.visible = true;
+    }
+    this._placeSupportHand(w, k);
+  }
+
+  _placeSupportHand(w, k) {
+    const h = w.hands;
+    const mag = w.parts.mag;
+    if (k <= 0 || !mag) {
+      h.support.position.copy(h.rest.pos);
+      h.support.quaternion.copy(h.rest.quat);
+      return;
+    }
+    // The mag node pivots about the WEAPON origin, not its own centre, so a
+    // 0.4rad tilt swings it 70mm. Following it means riding its whole transform.
+    _hq.setFromEuler(mag.rotation);
+    _hp.copy(h.mag.pos).applyQuaternion(_hq).add(mag.position);
+    h.support.position.lerpVectors(h.rest.pos, _hp, k);
+    h.support.quaternion.copy(h.rest.quat).slerp(_hq.multiply(h.mag.quat), k);
   }
 
   /** Short bolt/charging-handle blowback on every shot. */

@@ -37,14 +37,27 @@ function grad2(h, x, y) {
   }
 }
 
-/** Perlin noise on a tiling lattice — `per` keeps the result seamless. */
-export function noise2(x, y, per = 256) {
-  const wrap = v => ((v % per) + per) % per;
+/**
+ * Perlin noise on a tiling lattice. The result repeats every `per` units in x
+ * and `perY` in y, so a caller gets a seamless tile only by passing the period
+ * that matches the span it samples: sampling `u * 24` needs `per = 24`.
+ *
+ * `perY` exists because several materials are deliberately anisotropic — rain
+ * streaks and machining marks sample far more cycles across than down — and a
+ * single period cannot divide both spans without collapsing to their GCD.
+ *
+ * Periods must be whole numbers: the lattice index is an integer, so a
+ * fractional period aliases neighbouring cells onto each other and the field
+ * stops repeating at all.
+ */
+export function noise2(x, y, per = 256, perY = per) {
   const X0 = Math.floor(x), Y0 = Math.floor(y);
   const xf = x - X0, yf = y - Y0;
   const u = fade(xf), v = fade(yf);
-  const xi = wrap(X0) & 255, yi = wrap(Y0) & 255;
-  const xi1 = wrap(X0 + 1) & 255, yi1 = wrap(Y0 + 1) & 255;
+  const xi  = (((X0 % per) + per) % per) & 255;
+  const yi  = (((Y0 % perY) + perY) % perY) & 255;
+  const xi1 = ((((X0 + 1) % per) + per) % per) & 255;
+  const yi1 = ((((Y0 + 1) % perY) + perY) % perY) & 255;
 
   const aa = P[P[xi] + yi],  ab = P[P[xi] + yi1];
   const ba = P[P[xi1] + yi], bb = P[P[xi1] + yi1];
@@ -53,20 +66,31 @@ export function noise2(x, y, per = 256) {
     lerp(grad2(ab, xf, yf - 1), grad2(bb, xf - 1, yf - 1), u), v);
 }
 
-export function fbm(x, y, octaves = 5, lac = 2, gain = 0.5, per = 256) {
+/**
+ * Octave i samples at `freq` times the base coordinates, so its period has to
+ * scale by `freq` too — that is why the base span is the right thing to pass and
+ * every octave lands back on the tile edge together.
+ *
+ * Note the output is a sum of signed Perlin values divided by total amplitude,
+ * which does NOT span [-1,1]: over the windows sampled here it reaches roughly
+ * ±0.3 (2 octaves) narrowing to ±0.22 (5 octaves). Thresholds applied to
+ * `fbm(...) * 0.5 + 0.5` must be set against that measured range, not against a
+ * nominal 0..1, or the mask silently evaluates to zero.
+ */
+export function fbm(x, y, octaves = 5, lac = 2, gain = 0.5, per = 256, perY = per) {
   let sum = 0, amp = 1, freq = 1, norm = 0;
   for (let i = 0; i < octaves; i++) {
-    sum += amp * noise2(x * freq, y * freq, per * freq);
+    sum += amp * noise2(x * freq, y * freq, per * freq, perY * freq);
     norm += amp; amp *= gain; freq *= lac;
   }
   return sum / norm;
 }
 
 /** Ridged fbm — the sharp creases read as cracks and rock strata. */
-export function ridged(x, y, octaves = 5, per = 256) {
+export function ridged(x, y, octaves = 5, per = 256, perY = per) {
   let sum = 0, amp = 0.5, freq = 1, norm = 0;
   for (let i = 0; i < octaves; i++) {
-    const n = 1 - Math.abs(noise2(x * freq, y * freq, per * freq));
+    const n = 1 - Math.abs(noise2(x * freq, y * freq, per * freq, perY * freq));
     sum += amp * n * n; norm += amp; amp *= 0.5; freq *= 2;
   }
   return sum / norm;
@@ -238,19 +262,22 @@ export const MATERIALS = {
      and long vertical water staining under the panel joints. */
   concrete(size) {
     return build(size, (u, v, i, s) => {
-      const grain = fbm(u * 24, v * 24, 5);
-      const agg   = fbm(u * 90, v * 90, 3);
+      const grain = fbm(u * 24, v * 24, 5, 2, 0.5, 24);
+      const agg   = fbm(u * 90, v * 90, 3, 2, 0.5, 90);
       const cell  = voronoi(u, v, 14);
       const pit   = smoothstep(0.14, 0.0, cell.f1) * (cell.id > 0.72 ? 1 : 0);
       // Cracks follow a narrow band *around* a ridge level, not everything above
       // it — without the abs() the mask floods half the surface with blotches.
-      const crack = smoothstep(0.03, 0.0, Math.abs(ridged(u * 6, v * 6, 4) - 0.82));
+      const crack = smoothstep(0.031, 0.0, Math.abs(ridged(u * 6, v * 6, 4, 6) - 0.82));
 
       let h = 0.5 + grain * 0.22 + agg * 0.10 - pit * 0.42 - crack * 0.30;
       s.height[i] = h;
 
-      // Stretched along v: rain runs down the panel, so the streak must too.
-      const stain = smoothstep(0.55, 1.0, fbm(u * 11, v * 3, 4) * 0.5 + 0.5);
+      // Stretched along v: rain runs down the panel, so the streak must too, so
+      // the two axes need separate periods to wrap. Upper edge sits at the
+      // field's measured ceiling (~0.71 here) — the old 1.0 put it past what fbm
+      // can reach, throttling the streaks to a third of their intended depth.
+      const stain = smoothstep(0.55, 0.74, fbm(u * 11, v * 3, 4, 2, 0.5, 11, 3) * 0.5 + 0.5);
       const base = MIX([0.44, 0.435, 0.425], [0.30, 0.298, 0.292], stain * 0.75);
       const c = MIX(base, [0.22, 0.22, 0.225], pit * 0.6 + crack * 0.5);
       const spec = agg * 0.06;
@@ -267,17 +294,17 @@ export const MATERIALS = {
      underlying corrosion has lifted it, which is the tell that sells metal. */
   paintedMetal(size, tint = [0.30, 0.34, 0.38]) {
     return build(size, (u, v, i, s) => {
-      const dent  = fbm(u * 7, v * 7, 4) * 0.5 + 0.5;
-      const rustF = smoothstep(0.52, 0.86, fbm(u * 9, v * 9, 5) * 0.5 + 0.5);
-      const chip  = smoothstep(0.60, 0.78, fbm(u * 34, v * 34, 4) * 0.5 + 0.5) * rustF;
+      const dent  = fbm(u * 7, v * 7, 4, 2, 0.5, 7) * 0.5 + 0.5;
+      const rustF = smoothstep(0.52, 0.86, fbm(u * 9, v * 9, 5, 2, 0.5, 9) * 0.5 + 0.5);
+      const chip  = smoothstep(0.60, 0.78, fbm(u * 34, v * 34, 4, 2, 0.5, 34) * 0.5 + 0.5) * rustF;
       // A 3-octave fbm only reaches ~0.85 once remapped to 0..1, so the old 0.86
       // threshold clipped this mask to zero everywhere — with metalness now
       // driven by it, the bare-steel scratches have to actually appear.
-      const scratch = smoothstep(0.66, 0.76, fbm(u * 140, v * 6, 3) * 0.5 + 0.5);
+      const scratch = smoothstep(0.655, 0.76, fbm(u * 140, v * 6, 3, 2, 0.5, 140, 6) * 0.5 + 0.5);
 
       s.height[i] = 0.5 + dent * 0.08 - chip * 0.16 - scratch * 0.05;
 
-      const rustCol = MIX([0.36, 0.17, 0.075], [0.52, 0.28, 0.13], fbm(u * 40, v * 40, 3) * 0.5 + 0.5);
+      const rustCol = MIX([0.36, 0.17, 0.075], [0.52, 0.28, 0.13], fbm(u * 40, v * 40, 3, 2, 0.5, 40) * 0.5 + 0.5);
       let c = MIX(tint, rustCol, chip);
       c = MIX(c, [0.55, 0.56, 0.58], scratch * 0.5);
       s.rgb[i * 3] = c[0]; s.rgb[i * 3 + 1] = c[1]; s.rgb[i * 3 + 2] = c[2];
@@ -308,8 +335,8 @@ export const MATERIALS = {
       // straddles u = 0, keep one shade across the tile seam.
       const col = Math.floor((u + offset) / BRICK_W) % COLS;
       const id = ((row * 31 + col * 17) % 97) / 97;
-      const grit = fbm(u * 110, v * 110, 3) * 0.5 + 0.5;
-      const wear = fbm(u * 20, v * 20, 4) * 0.5 + 0.5;
+      const grit = fbm(u * 110, v * 110, 3, 2, 0.5, 110) * 0.5 + 0.5;
+      const wear = fbm(u * 20, v * 20, 4, 2, 0.5, 20) * 0.5 + 0.5;
 
       s.height[i] = (1 - mortarMask) * 0.55 + grit * 0.06 + wear * 0.05;
 
@@ -337,8 +364,11 @@ export const MATERIALS = {
       // wave-vector length (and so the 13 cm pitch) within 0.2% of the old 46.
       const bend   = fbm(u * 2, v * 2, 3, 2, 0.5, 2) * 8;
       const ripple = Math.sin((u * 45 + v * 10 + bend) * Math.PI * 2) * 0.5 + 0.5;
-      const grit   = fbm(u * 170, v * 170, 2) * 0.5 + 0.5;
-      const peb    = smoothstep(0.80, 0.92, fbm(u * 60, v * 60, 3) * 0.5 + 0.5);
+      const grit   = fbm(u * 170, v * 170, 2, 2, 0.5, 170) * 0.5 + 0.5;
+      // Thresholds bracket the top of this field's measured range (~0.77 peak);
+      // the old 0.80..0.92 window sat entirely above it, so the pebble layer
+      // never contributed a single texel of height, colour or roughness.
+      const peb    = smoothstep(0.63, 0.74, fbm(u * 60, v * 60, 3, 2, 0.5, 60) * 0.5 + 0.5);
 
       s.height[i] = 0.5 + dune * 0.04 + ripple * 0.055 + grit * 0.03 + peb * 0.10;
 
@@ -355,10 +385,10 @@ export const MATERIALS = {
   /* Asphalt with aggregate, tar seams and polished wheel tracks. */
   asphalt(size) {
     return build(size, (u, v, i, s) => {
-      const agg  = fbm(u * 130, v * 130, 3) * 0.5 + 0.5;
+      const agg  = fbm(u * 130, v * 130, 3, 2, 0.5, 130) * 0.5 + 0.5;
       const cell = voronoi(u, v, 26);
       const chunk = smoothstep(0.30, 0.06, cell.f1);
-      const crack = smoothstep(0.05, 0.0, Math.abs(ridged(u * 5, v * 5, 4) - 0.55));
+      const crack = smoothstep(0.05, 0.0, Math.abs(ridged(u * 5, v * 5, 4, 5) - 0.55));
       // Two polished bands where tyres have burnished the aggregate smooth.
       const track = Math.max(smoothstep(0.09, 0.0, Math.abs(u - 0.30)),
                              smoothstep(0.09, 0.0, Math.abs(u - 0.70)));
@@ -385,10 +415,21 @@ export const MATERIALS = {
       const shift = ((idx * 37) % 61) / 61;
 
       // Rings: a stretched noise field pushed through fract() to make bands.
-      const warp = fbm(u * 8, v * 2.2, 4) * 1.6;
-      const rings = Math.abs(((v * 5.5 + shift * 4 + warp) % 1) - 0.5) * 2;
-      const fiber = fbm(u * 200, v * 14, 3) * 0.5 + 0.5;
-      const knot  = smoothstep(0.86, 1.0, fbm(u * 6 + shift * 10, v * 6, 3) * 0.5 + 0.5);
+      // The ring count over v has to be a whole number — fract() of 5.5 cycles
+      // leaves a half-band step across the tile edge that reads as a hard line
+      // through every plank. The warp period must be integral for the same
+      // reason, so the vertical stretch is 2 rather than 2.2.
+      const warp = fbm(u * 8, v * 2, 4, 2, 0.5, 8, 2) * 1.6;
+      // JS % keeps the sign of its operand, and warp is signed, so near v = 0 the
+      // phase goes negative — which both breaks the wrap on the first plank and
+      // lets rings run past 1 into the height and roughness terms.
+      const phase = (v * 6 + shift * 4 + warp) % 1;
+      const rings = Math.abs((phase < 0 ? phase + 1 : phase) - 0.5) * 2;
+      const fiber = fbm(u * 200, v * 14, 3, 2, 0.5, 200, 14) * 0.5 + 0.5;
+      // Knots vary per plank because each plank samples its own stretch of the
+      // field; the old per-plank phase offset only added a wrap discontinuity on
+      // top of that. Window tracks the measured ceiling — at 0.86 it was dead.
+      const knot  = smoothstep(0.66, 0.72, fbm(u * 6, v * 6, 3, 2, 0.5, 6) * 0.5 + 0.5);
 
       s.height[i] = 0.5 + rings * 0.11 + fiber * 0.05 - seam * 0.55 - knot * 0.12;
 
@@ -407,9 +448,11 @@ export const MATERIALS = {
   corrugated(size) {
     return build(size, (u, v, i, s) => {
       const wave = Math.sin(u * Math.PI * 2 * 16) * 0.5 + 0.5;
-      const rust = smoothstep(0.45, 0.85, fbm(u * 7, v * 7, 5) * 0.5 + 0.5);
-      const streak = smoothstep(0.5, 1.0, fbm(u * 12, v * 2.5, 4) * 0.5 + 0.5) * rust;
-      const dent = fbm(u * 18, v * 18, 3) * 0.5 + 0.5;
+      const rust = smoothstep(0.45, 0.85, fbm(u * 7, v * 7, 5, 2, 0.5, 7) * 0.5 + 0.5);
+      // v * 2 rather than 2.5: a fractional period cannot wrap, and the streaks
+      // want the longer vertical run anyway.
+      const streak = smoothstep(0.5, 1.0, fbm(u * 12, v * 2, 4, 2, 0.5, 12, 2) * 0.5 + 0.5) * rust;
+      const dent = fbm(u * 18, v * 18, 3, 2, 0.5, 18) * 0.5 + 0.5;
 
       s.height[i] = wave * 0.72 + dent * 0.06 - rust * 0.05;
 
@@ -430,8 +473,8 @@ export const MATERIALS = {
       const wu = Math.sin(u * Math.PI * 2 * 130);
       const wv = Math.sin(v * Math.PI * 2 * 130);
       const weave = (wu * wv) * 0.5 + 0.5;
-      const fuzz = fbm(u * 220, v * 220, 2) * 0.5 + 0.5;
-      const wear = smoothstep(0.6, 0.95, fbm(u * 11, v * 11, 4) * 0.5 + 0.5);
+      const fuzz = fbm(u * 220, v * 220, 2, 2, 0.5, 220) * 0.5 + 0.5;
+      const wear = smoothstep(0.6, 0.95, fbm(u * 11, v * 11, 4, 2, 0.5, 11) * 0.5 + 0.5);
 
       s.height[i] = 0.5 + weave * 0.30 + fuzz * 0.06;
 
@@ -445,9 +488,9 @@ export const MATERIALS = {
   /* Gunmetal — parkerised finish with edge polish from handling. */
   gunmetal(size) {
     return build(size, (u, v, i, s) => {
-      const tool = fbm(u * 260, v * 8, 3) * 0.5 + 0.5;      // machining marks
-      const grain = fbm(u * 60, v * 60, 4) * 0.5 + 0.5;
-      const wear = smoothstep(0.66, 0.94, fbm(u * 14, v * 14, 4) * 0.5 + 0.5);
+      const tool = fbm(u * 260, v * 8, 3, 2, 0.5, 260, 8) * 0.5 + 0.5;   // machining marks
+      const grain = fbm(u * 60, v * 60, 4, 2, 0.5, 60) * 0.5 + 0.5;
+      const wear = smoothstep(0.66, 0.94, fbm(u * 14, v * 14, 4, 2, 0.5, 14) * 0.5 + 0.5);
 
       s.height[i] = 0.5 + grain * 0.05 + tool * 0.03 - wear * 0.02;
 

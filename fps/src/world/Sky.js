@@ -480,17 +480,26 @@ export class Sky {
       uTurbidity: { value: 5.2 },
       uMieCoeff: { value: 0.0045 },
       uMieG: { value: 0.80 },
-      uSkyScale: { value: 0.042 },
-      // Tuned so the disc lands around 45-60 in linear HDR: bright enough to
-      // drive the bloom bright-pass at its 1.05 threshold, nowhere near the
-      // half-float ceiling.
-      uSunDisc: { value: 13.0 },
-      uSunRadius: { value: 0.9 * D2R },
+      // Pulled down from 0.042 to hold the dome's absolute radiance across the
+      // elevation change: sunE rises by half again between 15° and 26°, and the
+      // sky was already clipping. The exposure lift the post chain applies is
+      // meant to land on the ground plane, not on a sky that has no headroom.
+      uSkyScale: { value: 0.030 },
+      // 0.27° is the real solar disc; at 0.9° it covered eleven times the solid
+      // angle and bloom smeared it over a third of the sky. Doubling the radiance
+      // keeps the peak reading as the sun while the total flux into the bright
+      // -pass drops, which is the whole point.
+      uSunDisc: { value: 26.0 },
+      uSunRadius: { value: 0.27 * D2R },
       uGroundColor: { value: new THREE.Color(0x2b2721) },
       uSunTint: { value: new THREE.Color(1.0, 0.84, 0.62) },
       uZenithTint: { value: new THREE.Color(0.32, 0.44, 0.62) },
       uCloudCover: { value: 0.50 },
-      uCloudSoft: { value: 0.24 },
+      // Tightened with the octave count: more octaves raise the fbm normaliser
+      // and so flatten the low-frequency contrast the cover threshold cuts
+      // against, which would have made the extra detail read as more fog rather
+      // than as harder cloud tops.
+      uCloudSoft: { value: 0.20 },
       uCloudScale: { value: 0.0011 },
       uCloudHeight: { value: 1800 },
       uCloudOpacity: { value: 0.94 },
@@ -498,8 +507,13 @@ export class Sky {
       uSilver: { value: 3.0 },
     };
 
+    /* Three octaves is a blob with nothing inside it. The deck only ever shades
+       background fragments and the warp path already costs three fbm calls, so
+       the extra taps buy internal structure and crisp tops for a rounding error
+       on anything with a desktop GPU; MEDIUM is held at four because it covers
+       mid-range phones, and LOW pays for none of it. */
     const defines = {
-      CLOUD_OCTAVES: low ? 2 : 3,
+      CLOUD_OCTAVES: low ? 2 : (med ? 4 : 5),
       ...(low ? {} : { CLOUD_WARP: 1 }),
     };
 
@@ -541,17 +555,29 @@ export class Sky {
     /* ------------------------------------------------- fog matched to sky */
 
     const horizonWarm = this._probeSky(this.sunDirection.x, this.sunDirection.z, 0.03);
-    const horizonCool = this._probeSky(-this.sunDirection.z, this.sunDirection.x, 0.03);
+    const horizonCross = this._probeSky(-this.sunDirection.z, this.sunDirection.x, 0.03);
+    const horizonAway = this._probeSky(-this.sunDirection.x, -this.sunDirection.z, 0.03);
 
-    // Near haze is the average of looking into and across the sun; far haze is
-    // the off-sun sample pushed bluer, because the long path is Rayleigh.
-    const near = horizonWarm.clone().lerp(horizonCool, 0.5).multiplyScalar(1.05);
-    const far = horizonCool.clone().lerp(new THREE.Color(0.30, 0.44, 0.64), 0.45);
+    // Near haze is heading-independent — it is the air a few metres out — so it
+    // is the mean of all three probes.
+    const near = horizonWarm.clone().lerp(horizonCross, 0.5)
+      .lerp(horizonAway, 1 / 3).multiplyScalar(1.05);
 
-    scene.fog = new THREE.FogExp2(0x000000, 0.0062);
+    // The two ends the far tint swings between, each taken from the sky the
+    // horizon actually meets in that direction. Only the anti-sun end is pushed
+    // toward Rayleigh blue and only slightly: 45% of the way to a saturated blue
+    // was enough to turn yellow sand into olive-teal mud.
+    const warmFar = horizonWarm.clone().multiplyScalar(1.04);
+    const coolFar = horizonAway.clone().lerp(new THREE.Color(0.30, 0.44, 0.64), 0.18);
+
+    // 0.0042: at 0.0062 the far half of the map was three-quarters haze, so the
+    // sand's own hue was gone long before the horizon and any mismatch in the
+    // haze tint became the entire colour of the distance.
+    scene.fog = new THREE.FogExp2(0x000000, 0.0042);
     scene.fog.color.copy(near);
     this.fog = scene.fog;
-    patchAerialFog(far, Math.min(settings.drawDistance, 260) * 0.8);
+    patchAerialFog(warmFar, coolFar, this.sunDirection,
+                   Math.min(settings.drawDistance, 260) * 0.8);
 
     this.horizonColor = near;
 
@@ -586,7 +612,9 @@ export class Sky {
     };
 
     scene.environment = this.envMap;
-    scene.environmentIntensity = 0.6;
+    // The IBL is the only thing lighting a surface that faces neither the key nor
+    // much of the upper hemisphere. At 0.6 those surfaces were black holes.
+    scene.environmentIntensity = 0.9;
   }
 
   /**
@@ -637,11 +665,13 @@ export class Sky {
     const r = this.renderer;
     const prev = r.getRenderTarget();
 
-    // A pinprick sun at 60 linear turns into fireflies once PMREM blurs it
-    // across the rough mips; dimming it for the capture keeps the specular
-    // response bright without the sparkle.
+    // At 0.27° the disc no longer fills even one texel of a 128px cube face, so
+    // whatever it lands on is a single sample several hundred times its
+    // neighbours' brightness — exactly the input PMREM's box-filtered mips turn
+    // into a crawling firefly. The directional light carries the sun's energy
+    // anyway; the capture only needs enough of it for a plausible specular.
     const disc = this.uniforms.uSunDisc.value;
-    this.uniforms.uSunDisc.value = disc * 0.25;
+    this.uniforms.uSunDisc.value = disc * 0.10;
     this._cubeCam.update(r, this._envScene);
     this.uniforms.uSunDisc.value = disc;
 
@@ -662,7 +692,9 @@ export class Sky {
       uniforms: {
         uColor: { value: new THREE.Color(1.0, 0.78, 0.50) },
         uTime: { value: 0 },
-        uIntensity: { value: 0.30 },
+        // Additive, so it scales with exposure for free; 0.30 was set against a
+        // frame the post chain now renders most of a stop brighter.
+        uIntensity: { value: 0.18 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -687,11 +719,15 @@ export class Sky {
     centre.y = 0;
 
     // Push the box toward where the player is looking; a frustum centred on the
-    // player spends half its texels on shadows behind them.
+    // player spends half its texels on shadows behind them. Capped in metres
+    // rather than left proportional, because once the span is wide enough to
+    // reach the far side of the map the lead stops buying coverage and starts
+    // throwing away the ground under the player's feet.
     camera.getWorldDirection(this._tmpB);
     this._tmpB.y = 0;
     if (this._tmpB.lengthSq() > 1e-6) {
-      centre.addScaledVector(this._tmpB.normalize(), this._shadowSpan * 0.22);
+      const lead = Math.min(this._shadowSpan * 0.22, 30);
+      centre.addScaledVector(this._tmpB.normalize(), lead);
     }
 
     // Snap the centre to whole shadow texels along the light's own axes. Without

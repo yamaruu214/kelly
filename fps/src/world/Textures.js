@@ -270,7 +270,10 @@ export const MATERIALS = {
       const dent  = fbm(u * 7, v * 7, 4) * 0.5 + 0.5;
       const rustF = smoothstep(0.52, 0.86, fbm(u * 9, v * 9, 5) * 0.5 + 0.5);
       const chip  = smoothstep(0.60, 0.78, fbm(u * 34, v * 34, 4) * 0.5 + 0.5) * rustF;
-      const scratch = smoothstep(0.86, 1.0, fbm(u * 140, v * 6, 3) * 0.5 + 0.5);
+      // A 3-octave fbm only reaches ~0.85 once remapped to 0..1, so the old 0.86
+      // threshold clipped this mask to zero everywhere — with metalness now
+      // driven by it, the bare-steel scratches have to actually appear.
+      const scratch = smoothstep(0.66, 0.76, fbm(u * 140, v * 6, 3) * 0.5 + 0.5);
 
       s.height[i] = 0.5 + dent * 0.08 - chip * 0.16 - scratch * 0.05;
 

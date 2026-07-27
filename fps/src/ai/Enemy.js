@@ -1600,7 +1600,7 @@ export class EnemyManager {
    * pressure stays on the front.
    */
   pickCoverNode(enemy, player, forceNew) {
-    const eye = this.playerEye(player, _v1.clone());
+    const eye = this.eye;
     let best = -1, bestScore = -Infinity;
     for (let i = 0; i < this.coverNodes.length; i++) {
       const node = this.coverNodes[i];

@@ -127,7 +127,10 @@ export class PostFX {
 
       void main(){
         vec3 p = viewPos(vUv);
-        if (-p.z > 250.0) { fragColor = vec4(1.0); return; }
+        // Sky writes no depth, so those texels sit at the far plane. Reject
+        // relative to uFar — a fixed cutoff would miss them entirely on mobile,
+        // where the far plane is only 190 units out.
+        if (-p.z > uFar * 0.97) { fragColor = vec4(1.0); return; }
 
         // Reconstruct the normal from depth derivatives — no normal buffer.
         vec3 dx = dFdx(p), dy = dFdy(p);

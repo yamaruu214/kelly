@@ -664,6 +664,9 @@ export class WeaponSystem {
     this._lag = { x: 0, y: 0, vx: 0, vy: 0 };
     this._vmKick = { z: 0, vz: 0, p: 0, vp: 0, r: 0, vr: 0 };
     this._shake = 0;
+    this._cycleT = 0;
+    this._shotDir = new THREE.Vector3();
+    this._shotOrigin = new THREE.Vector3();
 
     this.reset();
   }
@@ -754,10 +757,13 @@ export class WeaponSystem {
   _buildFlash() {
     this.flashGroup = new THREE.Group();
     this.flashGroup.visible = false;
+    // Two crossed cards instead of a billboard: the flash keeps volume when the
+    // recoil roll spins the viewmodel, and costs nothing to update.
     const card = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.24), this._materials.flash);
     const cross = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20), this._materials.flash);
     cross.rotation.y = Math.PI * 0.5;
-    this.flashCard = card;
+    card.frustumCulled = cross.frustumCulled = false;
+    card.renderOrder = cross.renderOrder = 10;
     this.flashGroup.add(card, cross);
 
     // Range is tiny in view space; the same flash gets a second, world-scale
@@ -842,7 +848,7 @@ export class WeaponSystem {
     this._writtenRot.set(NaN, NaN, NaN);
     this._appliedRot.set(0, 0, 0);
     this._resetParts();
-    this._placeRig(1);
+    this._placeRig();
   }
 
   _resetParts() {
@@ -1015,6 +1021,7 @@ export class WeaponSystem {
       if (!this._meleeDone && elapsed > 0.18) { this._meleeDone = true; this._doMelee(); }
     }
 
+    if (this._cycleT > 0) this._cycleT = Math.max(0, this._cycleT - dt);
     this._shake = Math.max(0, this._shake - dt * 2.4);
     this.exposureBoost = damp(this.exposureBoost, 1.0, 9, dt);
   }
@@ -1091,13 +1098,14 @@ export class WeaponSystem {
     const half = this.spread;
     const a = Math.random() * Math.PI * 2;
     const rr = Math.sqrt(Math.random()) * half;
-    _v1.copy(_fwd)
+    // Direction and origin live on the instance, not in module scratch: the
+    // trace calls into level, particle and enemy code that borrows the scratch.
+    this._shotDir.copy(_fwd)
       .addScaledVector(_right, Math.cos(a) * Math.tan(rr))
       .addScaledVector(_up, Math.sin(a) * Math.tan(rr))
       .normalize();
-
-    const origin = _v2.copy(this.camera.position);
-    this._traceShot(origin, _v1, def);
+    this._shotOrigin.copy(this.camera.position);
+    this._traceShot(this._shotOrigin, this._shotDir, def);
 
     this._applyRecoil(def.recoil);
     this._spreadHeat = Math.min(def.spread.max, this._spreadHeat + def.spread.perShot);
@@ -1151,13 +1159,13 @@ export class WeaponSystem {
       return;
     }
 
-    this.particles?.tracer?.(this._worldMuzzle(_v3), _v1.copy(origin).addScaledVector(dir, 120), def.id);
+    this.particles?.tracer?.(this._worldMuzzle(_v3), _v4.copy(origin).addScaledVector(dir, 120), def.id);
   }
 
   _worldImpact(world, dir) {
     const n = world.face
-      ? _v1.copy(world.face.normal).applyNormalMatrix(
-          new THREE.Matrix3().getNormalMatrix(world.object.matrixWorld)).normalize()
+      ? _v1.copy(world.face.normal)
+          .applyNormalMatrix(_nmat.getNormalMatrix(world.object.matrixWorld)).normalize()
       : _v1.copy(dir).negate();
     const surface = world.object?.userData?.surface || 'concrete';
     this.particles?.impact?.(world.point, n, surface);
@@ -1229,7 +1237,7 @@ export class WeaponSystem {
     }
 
     const vk = 190, vc = 2 * Math.sqrt(vk) * 0.95;
-    for (const [p, v] of [['z', 'vz'], ['p', 'vp'], ['r', 'vr']]) {
+    for (const [p, v] of SPRING_AXES) {
       this._vmKick[v] += (-vk * this._vmKick[p] - vc * this._vmKick[v]) * dt;
       this._vmKick[p] += this._vmKick[v] * dt;
     }
@@ -1252,19 +1260,21 @@ export class WeaponSystem {
 
   /* ---------------------------------------------------------- viewmodel */
 
-  _placeRig(t) {
+  _placeRig() {
     const def = this.weapon.def;
     this.rig.position.set(def.hipPos[0], def.hipPos[1], def.hipPos[2]);
     this.rig.rotation.set(def.hipRot[0], def.hipRot[1], def.hipRot[2]);
   }
 
-  _updateViewmodel(dt, speed, grounded, sprinting, yawDelta, pitchDelta) {
+  _updateViewmodel(dt, speed, grounded, sprinting, yawDelta, pitchDelta, input) {
     const def = this.weapon.def;
     const ads = this.adsProgress;
     const busy = this._reloadT > 0 || this._switchT > 0 || this._meleeT > 0;
 
-    /* --- sprint pose: cants the weapon down-right and out of the sight line */
-    const wantSprint = sprinting && !busy && ads < 0.05 && this._t - this._lastFire > 0.25 ? 1 : 0;
+    // Holding fire drops the sprint pose; firing itself stays gated on the
+    // blend, so pulling the trigger mid-sprint costs the ~0.12s raise time.
+    const wantSprint = sprinting && !busy && ads < 0.05 &&
+      !input.down('fire') && this._t - this._lastFire > 0.25 ? 1 : 0;
     this._sprintBlend = damp(this._sprintBlend, wantSprint, 9, dt);
     const sp = this._sprintBlend;
 
@@ -1307,7 +1317,7 @@ export class WeaponSystem {
     pz += 0.030 * sp;
     rx += 0.16 * sp; ry += -0.52 * sp; rz += 0.62 * sp;
 
-    const anim = this._poseOffsets(dt);
+    const anim = this._poseOffsets();
     px += anim.x; py += anim.y; pz += anim.z;
     rx += anim.rx; ry += anim.ry; rz += anim.rz;
 
@@ -1335,7 +1345,7 @@ export class WeaponSystem {
   }
 
   /** Additive pose offsets from reload / switch / inspect / melee states. */
-  _poseOffsets(dt) {
+  _poseOffsets() {
     const o = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
 
     if (this._switchT > 0) {
@@ -1388,6 +1398,11 @@ export class WeaponSystem {
     const p = w.parts;
     if (this._reloadT <= 0 || this._switchT > 0) {
       if (p.mag) { p.mag.visible = true; p.mag.position.set(0, 0, 0); p.mag.rotation.set(0, 0, 0); }
+      // Per-shot blowback: the bolt travels a fraction of the charging handle's
+      // stroke, and both are back in battery before the next round leaves.
+      const c = this._cycleT > 0 ? Math.sin(this._cycleT / 0.055 * Math.PI) : 0;
+      if (p.bolt) p.bolt.position.z = c * 0.030;
+      if (p.charge) p.charge.position.z = c * 0.014;
       return;
     }
     const t = 1 - this._reloadT / this._reloadDur;
@@ -1426,11 +1441,7 @@ export class WeaponSystem {
   }
 
   /** Short bolt/charging-handle blowback on every shot. */
-  _cycleAction() {
-    const p = this.weapon.parts;
-    if (p.bolt) p.bolt.userData.cycle = 1;
-    this._cycleT = 0.055;
-  }
+  _cycleAction() { this._cycleT = 0.055; }
 
   _animateKnife() {
     const show = this._meleeT > 0;
@@ -1588,8 +1599,8 @@ export class WeaponSystem {
         const list = _ray.intersectObjects(targets, true);
         if (list.length) {
           const n = list[0].face
-            ? _v3.copy(list[0].face.normal).applyNormalMatrix(
-                new THREE.Matrix3().getNormalMatrix(list[0].object.matrixWorld)).normalize()
+            ? _v3.copy(list[0].face.normal)
+                .applyNormalMatrix(_nmat.getNormalMatrix(list[0].object.matrixWorld)).normalize()
             : _v3.set(0, 1, 0);
           g.pos.copy(list[0].point).addScaledVector(n, 0.05);
           g.vel.reflect(n).multiplyScalar(0.38);

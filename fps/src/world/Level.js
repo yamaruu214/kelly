@@ -20,8 +20,8 @@ import * as THREE from 'three';
 import { makeStandardMaterial, fbm } from './Textures.js';
 
 /* World size, in metres, of one repetition of each texture. Chosen so the
-   synthesised detail lands at its real scale: 12 brick courses over 2 m gives
-   16 cm courses, 16 corrugations over 1.05 m gives a 6.5 cm pitch. */
+   synthesised detail lands at its real scale: 24 brick courses over 2 m gives
+   8.33 cm courses, 16 corrugations over 1.05 m gives a 6.5 cm pitch. */
 const TILE = {
   concrete: 2.6, brick: 2.0, sand: 6.0, asphalt: 6.0, wood: 1.3,
   corrugated: 1.05, metal: 1.6, metalOlive: 2.2, fabric: 0.9, gunmetal: 0.7,

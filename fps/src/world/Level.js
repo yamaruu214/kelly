@@ -272,6 +272,8 @@ export class Level {
     this.meshes = [];
     this._mats = new Map();
     this._batches = new Map();
+    // Emplacements are authored while buildings go up but instanced in one pass.
+    this._crates = []; this._smallCrates = []; this._bags = [];
     this._rng = mulberry32(0x5eed17);
     this._low = settings.name === 'LOW';
     this.stats = { drawCalls: 0, triangles: 0, colliders: 0 };
@@ -342,8 +344,11 @@ export class Level {
   _wall(mat, o) {
     const { axis, cx, cz, len, height, thick } = o;
     const y0 = o.y0 ?? 0, top = y0 + height;
-    const trim = o.trim ?? (mat === 'brick' ? 'concrete' : 'concrete');
-    const foot = o.foundation ?? 0.5;
+    // Timber reveals on brick, steel on sheet metal, cast surrounds on concrete.
+    const trim = o.trim ?? (mat === 'brick' ? 'wood' : mat === 'corrugated' ? 'metal' : 'concrete');
+    // Only walls that meet grade get a buried foot; repeating it on an upper
+    // storey would hang a half-metre downstand into the room below.
+    const foot = y0 <= 0.001 ? (o.foundation ?? 0.5) : 0.06;
     const ops = (o.openings || []).slice().sort((a, b) => a.at - b.at);
 
     const put = (u0, u1, v0, v1) => {
@@ -466,7 +471,9 @@ export class Level {
     }
 
     /* Slabs. The ground pad sits 4 cm proud so it never z-fights the sand. */
-    this._slab(slabMat, x, 0.04, z, w, d, 0.5, null);
+    // Ground pad carries no collider: the world floor already sits at y=0 and
+    // the 4 cm the pad stands proud is not worth 9 more boxes to test per step.
+    this._box(slabMat, x, -0.21, z, w, 0.5, d);
     if (interiorSlabs) {
       for (let f = 1; f < floors; f++) this._slab(slabMat, x, f * storyH, z, w, d, 0.3, hole);
     }
@@ -838,8 +845,8 @@ export class Level {
       const y = f * 3.0;
       this._solid('concrete', -38, y - 0.1, 35.6, 9.0, 0.24, 1.9);
       this._solid('concrete', -38, y + 0.45, 36.5, 9.0, 0.9, 0.16);
-      this._solid('concrete', -42.4, y + 0.45, 35.6, 0.16, 0.9, 1.9);
-      this._solid('concrete', -33.6, y + 0.45, 35.6, 0.16, 0.9, 1.9);
+      this._box('concrete', -42.4, y + 0.45, 35.6, 0.16, 0.9, 1.9);
+      this._box('concrete', -33.6, y + 0.45, 35.6, 0.16, 0.9, 1.9);
       this._cover(-38, 35.4, y + 0.02);
       this.enemySpawns.push(new THREE.Vector3(-40, y + 0.05, 26));
     }
@@ -881,7 +888,730 @@ export class Level {
     this._pipe(42.2, 0, 39.8, H);
     this._cover(29.5, 40, 0.05); this._cover(43, 28, 0.05);
     this.enemySpawns.push(new THREE.Vector3(36, 0.05, 34), new THREE.Vector3(36, 3.2, 32),
-                          new THREE.Vector3(30, 0.05, 42));
+                          new THREE.Vector3(45, 0.05, 43));
+  }
+
+  /** Vehicle garage — open bays west, roof reached from the container stack. */
+  _buildGarage() {
+    const B = BUILDINGS.garage, H = 5.4;
+    this._shell({
+      x: B.x, z: B.z, w: B.w, d: B.d, mat: 'concrete', storyH: H, floors: 1,
+      roofMat: 'corrugated', parapet: 0.55, parapetSkip: 's', windowPitch: 5.0,
+      doors: {
+        w: [{ at: -3, w: 4.0, h: 4.3 }, { at: 3, w: 4.0, h: 4.3 }],
+        e: [{ at: 0, w: 1.7, h: 2.4 }],
+      },
+    });
+    // Corrugated sheeting laid over the slab, with a proper eave overhang.
+    this._box('corrugated', B.x, H + 0.4, B.z, B.w + 1.0, 0.14, B.d + 1.0);
+    for (let i = 0; i < 5; i++) {
+      this._box('metal', B.x - 7 + i * 3.5, H - 0.35, B.z, 0.2, 0.5, B.d - 0.6);
+    }
+    this._awning(21.0, 4.6, B.z, 2.4, B.d - 1.5, 'w');
+    this._acUnit(34, H + 0.5, -34);
+    this._cover(20, -33, 0.05); this._cover(20, -27, 0.05); this._cover(40, -30, 0.05);
+    this.enemySpawns.push(new THREE.Vector3(30, 0.05, -30), new THREE.Vector3(38, 0.05, -34));
+  }
+
+  /** Shophouse terrace — a long, tight north-south wall on the west lane. */
+  _buildShops() {
+    const B = BUILDINGS.shops, H = 6.8;
+    this._shell({
+      x: B.x, z: B.z, w: B.w, d: B.d, mat: 'brick', storyH: 3.4, floors: 2,
+      parapet: 0.85, windowPitch: 4.0, thick: 0.32, interiorSlabs: true,
+      hole: null,
+      doors: {
+        e: [{ at: -8, w: 1.9, h: 2.5 }, { at: 0, w: 1.9, h: 2.5 }, { at: 8, w: 1.9, h: 2.5 }],
+      },
+    });
+    // Arcade awning: the shade line under it is where players stop being seen.
+    this._awning(-52.9, 3.1, B.z, 2.6, B.d - 2, 'e');
+    for (let i = -2; i <= 2; i++) this._box('wood', -50.6, 1.55, B.z + i * 5.4, 0.16, 3.1, 0.16);
+    this._pipe(-53.2, 0, -16.2, H);
+    this._pipe(-53.2, 0, 8.2, H);
+    for (const z of [-14, -6, 2, 8]) this._cover(-51.5, z, 0.05);
+    this.enemySpawns.push(new THREE.Vector3(-58, 0.05, -10), new THREE.Vector3(-58, 0.05, 4),
+                          new THREE.Vector3(-64, 0.05, -20));
+  }
+
+  /** Guard post — small, glazed, roof taken by parkour rather than stairs. */
+  _buildGuard() {
+    const B = BUILDINGS.guard, H = 3.4;
+    this._shell({
+      x: B.x, z: B.z, w: B.w, d: B.d, mat: 'concrete', storyH: H, floors: 1,
+      parapet: 0.9, glass: true, windowPitch: 3.4,
+      doors: { w: [{ at: 0, w: 1.6, h: 2.3 }] },
+    });
+    this._sandbagRing(B.x, H + 0.05, B.z, 2.6);
+    this._cover(B.x - 5.5, B.z, 0.05);
+    this.enemySpawns.push(new THREE.Vector3(54, 0.05, 30), new THREE.Vector3(60, 0.05, 22));
+  }
+
+  /** Supply depot on the north edge, the player's first piece of hard cover. */
+  _buildDepot() {
+    const B = BUILDINGS.depot, H = 4.0;
+    this._shell({
+      x: B.x, z: B.z, w: B.w, d: B.d, mat: 'concrete', storyH: H, floors: 1,
+      roofMat: 'corrugated', parapet: 0, windowPitch: 4.2,
+      doors: { s: [{ at: 0, w: 3.0, h: 3.0 }], e: [{ at: 0, w: 1.6, h: 2.3 }] },
+    });
+    this._box('corrugated', B.x, H + 0.45, B.z, B.w + 1.2, 0.14, B.d + 1.2);
+    this._awning(B.x, 3.3, B.z + 4.5, 2.2, B.w - 2, 's');
+    this._cover(-27, 48, 0.05); this._cover(-13, 48, 0.05);
+    this.enemySpawns.push(new THREE.Vector3(-20, 0.05, 48));
+  }
+
+  /** Bombed-out shell: jagged brick stubs, no roof, rubble spilling out. */
+  _buildRuin() {
+    const B = BUILDINGS.ruin, t = 0.36;
+    const x0 = B.x - B.w / 2, x1 = B.x + B.w / 2;
+    const z0 = B.z - B.d / 2, z1 = B.z + B.d / 2;
+    const seg = [
+      { axis: 'x', cx: B.x - 4, cz: z0, len: 8, h: 4.2 },
+      { axis: 'x', cx: B.x + 5.5, cz: z0, len: 5, h: 1.4 },
+      { axis: 'z', cx: x0, cz: B.z - 2, len: 7, h: 3.6 },
+      { axis: 'z', cx: x0, cz: B.z + 4, len: 3, h: 1.2 },
+      { axis: 'x', cx: B.x - 5, cz: z1, len: 6, h: 2.4 },
+      { axis: 'z', cx: x1, cz: B.z, len: 10, h: 3.0 },
+      { axis: 'x', cx: B.x + 2, cz: B.z, len: 9, h: 1.9 },   // collapsed partition
+    ];
+    for (const s of seg) {
+      const w = s.axis === 'x' ? s.len : t, d = s.axis === 'x' ? t : s.len;
+      this._solid('brick', s.cx, s.h / 2 - 0.3, s.cz, w, s.h + 0.6, d);
+      // Ragged top course so the break never reads as a clean saw cut.
+      const n = Math.max(2, Math.round(s.len / 1.1));
+      for (let i = 0; i < n; i++) {
+        const f = (i + 0.5) / n, hh = 0.2 + this._rng() * 0.55;
+        const px = s.axis === 'x' ? s.cx - s.len / 2 + s.len * f : s.cx;
+        const pz = s.axis === 'x' ? s.cz : s.cz - s.len / 2 + s.len * f;
+        this._box('brick', px, s.h + hh / 2 - 0.05, pz,
+          s.axis === 'x' ? s.len / n * 0.9 : t, hh, s.axis === 'x' ? t : s.len / n * 0.9);
+      }
+      this._cover(s.cx + (s.axis === 'x' ? 0 : 1.5), s.cz + (s.axis === 'x' ? 1.5 : 0));
+    }
+    this._solid('concrete', B.x, -0.1, B.z, B.w, 0.4, B.d);
+    this.enemySpawns.push(new THREE.Vector3(B.x, 0.05, B.z), new THREE.Vector3(B.x - 10, 0.05, B.z + 4));
+  }
+
+  /** Corrugated lean-to in the south-east dead ground. */
+  _buildShed() {
+    const B = BUILDINGS.shed, H = 3.0;
+    this._shell({
+      x: B.x, z: B.z, w: B.w, d: B.d, mat: 'corrugated', storyH: H, floors: 1,
+      thick: 0.16, parapet: 0, roofMat: 'corrugated', windowPitch: 4.5,
+      doors: { n: [{ at: 0, w: 2.2, h: 2.4 }] },
+    });
+    // Single-pitch roof: a thin slab tilted just enough to read as drainage.
+    const g = boxGeo(B.w + 0.9, 0.12, B.d + 0.9, TILE.corrugated);
+    g.rotateX(0.14).translate(B.x, H + 0.5, B.z);
+    this._geo('corrugated', g);
+    for (let i = 0; i < 3; i++) this._box('wood', B.x - 3 + i * 3, H + 0.2, B.z, 0.14, 0.5, B.d);
+    this._cover(48, -48, 0.05); this._cover(54, -43, 0.05);
+    this.enemySpawns.push(new THREE.Vector3(54, 0.05, -48), new THREE.Vector3(62, 0.05, -56));
+  }
+
+  /* ------------------------------------------------------------- details */
+
+  _railing(x0, z0, x1, z1, y) {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const ang = Math.atan2(-(z1 - z0), x1 - x0);
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    for (const h of [1.05, 0.55]) {
+      this._box('metal', cx, y + h, cz, len, 0.07, 0.07, ang);
+    }
+    const n = Math.max(2, Math.round(len / 2.0));
+    for (let i = 0; i <= n; i++) {
+      const f = i / n;
+      this._box('metal', x0 + (x1 - x0) * f, y + 0.55, z0 + (z1 - z0) * f, 0.08, 1.1, 0.08);
+    }
+  }
+
+  /** Rooftop condenser: box, fan cowl and fins. Reads as clutter from below. */
+  _acUnit(x, y, z) {
+    this._box('metal', x, y + 0.45, z, 1.15, 0.9, 0.95);
+    this._geo('metal', cylGeo(0.34, 0.34, 0.12, 10, TILE.metal).translate(x, y + 0.96, z));
+    for (let i = 0; i < 4; i++) this._box('metal', x - 0.45 + i * 0.3, y + 0.45, z + 0.5, 0.08, 0.8, 0.06);
+    this._box('metal', x, y + 0.05, z, 1.3, 0.1, 1.1);
+  }
+
+  _roofTank(x, y, z, r, h) {
+    this._geo('metal', cylGeo(r, r, h, 14, TILE.metal).translate(x, y + h / 2 + 0.5, z));
+    this._collider(x, y + h / 2 + 0.5, z, r * 2, h, r * 2);
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.5708;
+      this._box('metal', x + Math.cos(a) * r * 0.8, y + 0.25, z + Math.sin(a) * r * 0.8, 0.1, 0.5, 0.1);
+    }
+  }
+
+  /** Downpipe with brackets — vertical relief on an otherwise flat corner. */
+  _pipe(x, y0, z, y1) {
+    this._geo('metal', cylGeo(0.075, 0.075, y1 - y0, 6, TILE.metal).translate(x, (y0 + y1) / 2, z));
+    for (let h = 1.2; h < y1; h += 2.4) this._box('metal', x, h, z, 0.22, 0.08, 0.22);
+  }
+
+  /** Sloped awning on one face, plus its tie rods. */
+  _awning(x, y, z, out, len, side) {
+    const dx = side === 'e' ? 1 : side === 'w' ? -1 : 0;
+    const dz = side === 's' ? 1 : side === 'n' ? -1 : 0;
+    const g = boxGeo(dx ? out : len, 0.1, dx ? len : out, TILE.corrugated);
+    g.rotateZ(dx ? -dx * 0.22 : 0);
+    if (dz) g.rotateX(dz * 0.22);
+    g.translate(x + dx * out / 2, y, z + dz * out / 2);
+    this._geo('corrugated', g);
+    for (const s of [-1, 1]) {
+      const px = x + dx * out * 0.9 + (dx ? 0 : s * len * 0.45);
+      const pz = z + dz * out * 0.9 + (dz ? 0 : s * len * 0.45);
+      this._box('metal', px, y - 0.9, pz, 0.09, 1.8, 0.09);
+    }
+  }
+
+  /** Catenary cable between two anchor points. */
+  _cable(x0, y0, z0, x1, y1, z1, sag = 1.2) {
+    const pts = [];
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8;
+      pts.push(new THREE.Vector3(
+        x0 + (x1 - x0) * t,
+        y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * sag,
+        z0 + (z1 - z0) * t));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const g = new THREE.TubeGeometry(curve, 10, 0.035, 3, false);
+    scaleUV(g, curve.getLength() / TILE.gunmetal, 0.2 / TILE.gunmetal);
+    this._geo('gunmetal', g);
+  }
+
+  /* ---------------------------------------------------------- structures */
+
+  /**
+   * Water tower, near the centre and 18 m tall. Deliberately not climbable —
+   * its whole job is to be visible from every corner so the player always knows
+   * which way they are facing. Nothing else on the map is that tall.
+   */
+  _buildWaterTower() {
+    const cx = 2, cz = -2, legR = 3.6, legH = 12;
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.5708 + 0.785;
+      const lx = cx + Math.cos(a) * legR, lz = cz + Math.sin(a) * legR;
+      // Legs splay outward: a straight-sided tower looks like a table.
+      const g = cylGeo(0.16, 0.24, legH, 8, TILE.metal);
+      g.translate(0, legH / 2, 0);
+      g.applyMatrix4(new THREE.Matrix4().makeTranslation(lx, 0, lz));
+      this._geo('metal', g);
+      this._collider(lx, legH / 2, lz, 0.55, legH, 0.55);
+    }
+    for (let ring = 0; ring < 3; ring++) {
+      const y = 3.0 + ring * 3.2;
+      for (let i = 0; i < 4; i++) {
+        const a0 = i * 1.5708 + 0.785, a1 = a0 + 1.5708;
+        const p0 = [cx + Math.cos(a0) * legR, cz + Math.sin(a0) * legR];
+        const p1 = [cx + Math.cos(a1) * legR, cz + Math.sin(a1) * legR];
+        const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+        const ang = Math.atan2(-(p1[1] - p0[1]), p1[0] - p0[0]);
+        this._box('metal', (p0[0] + p1[0]) / 2, y, (p0[1] + p1[1]) / 2, len, 0.12, 0.12, ang);
+        for (const s of [-1, 1]) {
+          const g = boxGeo(Math.hypot(len, 3.2), 0.09, 0.09, TILE.metal);
+          g.rotateZ(s * Math.atan2(3.2, len)); g.rotateY(ang);
+          g.translate((p0[0] + p1[0]) / 2, y + 1.6, (p0[1] + p1[1]) / 2);
+          this._geo('metal', g);
+        }
+      }
+    }
+    this._geo('metal', cylGeo(4.3, 4.3, 0.14, 16, TILE.metal).translate(cx, legH - 0.1, cz));
+    for (let i = 0; i < 12; i++) {
+      const a = i * 0.5236;
+      this._box('metal', cx + Math.cos(a) * 4.1, legH + 0.5, cz + Math.sin(a) * 4.1, 0.07, 1.1, 0.07);
+    }
+    const tank = cylGeo(3.3, 3.3, 4.8, 16, TILE.corrugated);
+    this._geo('corrugated', tank.translate(cx, legH + 2.4, cz));
+    this._collider(cx, legH + 2.4, cz, 6.6, 4.8, 6.6);
+    this._geo('corrugated', cylGeo(0.2, 3.7, 1.6, 16, TILE.corrugated).translate(cx, legH + 5.6, cz));
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.5708;
+      this._box('metal', cx + Math.cos(a) * 3.35, legH + 2.4, cz + Math.sin(a) * 3.35, 0.1, 4.8, 0.1);
+    }
+    // Access ladder, purely to explain how the tank is ever serviced.
+    for (const s of [-0.28, 0.28]) this._box('metal', cx + s, legH / 2, cz - legR - 0.3, 0.06, legH, 0.06);
+    for (let r = 0; r < 26; r++) this._box('metal', cx, r * 0.45 + 0.4, cz - legR - 0.3, 0.62, 0.05, 0.05);
+  }
+
+  /**
+   * Container yard: the only route from ground to the garage roof, gated by a
+   * crate parkour stack so the climb costs time and exposes you while you take it.
+   */
+  _buildContainerYard() {
+    const boxes = [
+      { x: 24, z: -16, y: 0, ry: 0 }, { x: 24, z: -13.2, y: 0, ry: 0 },
+      { x: 31.5, z: -16, y: 0, ry: 0 }, { x: 24, z: -14.6, y: 2.59, ry: 0 },
+      { x: 31.5, z: -16, y: 2.59, ry: 0 },
+      { x: 44, z: 14, y: 0, ry: Math.PI / 2 },      // road blocker, east lane
+      { x: -20, z: 16, y: 0, ry: Math.PI / 2 },     // road blocker, west lane
+      { x: -34, z: -20, y: 0, ry: 0 },
+      { x: 8, z: -40, y: 0, ry: Math.PI / 2 },
+      { x: 60, z: 4, y: 0, ry: 0 }, { x: 60, z: 4, y: 2.59, ry: 0 },
+      { x: -50, z: 42, y: 0, ry: Math.PI / 2 },
+    ];
+    const palette = [0x8c5a3c, 0x4a6a78, 0x6f7a5a, 0x8a8578, 0x7a4a44, 0x5c6663];
+    this._instanced('corrugated', this._containerGeo(),
+      boxes.map(b => ({ x: b.x, y: b.y + 1.295, z: b.z, ry: b.ry })), {
+      cast: true, surface: 'metal',
+      color: (i) => new THREE.Color(palette[i % palette.length]),
+    });
+    for (const b of boxes) {
+      this._collider(b.x, b.y + 1.295, b.z, 6.06, 2.59, 2.44, b.ry);
+      this._cover(b.x + (b.ry ? 2.2 : 0), b.z + (b.ry ? 0 : 2.2));
+      this._cover(b.x - (b.ry ? 2.2 : 0), b.z - (b.ry ? 0 : 2.2));
+    }
+
+    /* Ground -> A/B tops -> D top -> garage roof. */
+    this._stairs('metal', { x: 21.6, z: -12.8, y0: 2.59, y1: 5.18, dir: '+x', width: 1.4 });
+    this._landing('metal', 26.9, 5.18, -13.3, 2.2, 1.8);
+    this._solid('metal', 24, 5.16, -19.8, 1.9, 0.24, 9.0);      // catwalk to the roof
+    this._railing(23.05, -24.2, 23.05, -15.4, 5.28);
+    this._railing(24.95, -24.2, 24.95, -15.4, 5.28);
+    for (const z of [-18, -22]) this._box('metal', 24, 2.6, z, 0.16, 5.2, 0.16);
+    this._cover(24, -17, 5.3); this._cover(31.5, -14, 5.25);
+    this.enemySpawns.push(new THREE.Vector3(34, 0.05, -8), new THREE.Vector3(24, 5.3, -18));
+  }
+
+  _containerGeo() {
+    const parts = [boxGeo(6.06, 2.59, 2.44, TILE.corrugated, { swapSides: true })];
+    // Corner castings and the door end — the details that read as "container".
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      parts.push(boxGeo(0.3, 0.22, 2.5, TILE.metal).translate(sx * 2.88, sy * 1.19, 0));
+    }
+    for (const sz of [-1, 1]) {
+      parts.push(boxGeo(6.1, 0.2, 0.2, TILE.metal).translate(0, 1.2, sz * 1.21));
+      parts.push(boxGeo(6.1, 0.2, 0.2, TILE.metal).translate(0, -1.2, sz * 1.21));
+    }
+    for (const ox of [-0.55, 0.55]) {
+      parts.push(boxGeo(0.09, 2.3, 0.09, TILE.metal).translate(3.04, 0, ox));
+    }
+    parts.push(boxGeo(0.06, 2.4, 1.1, TILE.metal).translate(3.05, 0, 0.6));
+    parts.push(boxGeo(0.06, 2.4, 1.1, TILE.metal).translate(3.05, 0, -0.6));
+    return mergeGeometries(parts);
+  }
+
+  /** Timber scaffold — mid-height perch that owns the northern approach. */
+  _buildScaffold() {
+    const x = 14, z = 40, w = 6.4, d = 3.6, y = 3.3;
+    this._solid('wood', x, y - 0.12, z, w, 0.24, d);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      this._box('wood', x + sx * (w / 2 - 0.2), y / 2, z + sz * (d / 2 - 0.2), 0.22, y, 0.22);
+      const g = boxGeo(Math.hypot(w, y), 0.12, 0.12, TILE.wood);
+      g.rotateZ(sz * 0.5); g.translate(x, y / 2, z + sz * (d / 2 - 0.2));
+      this._geo('wood', g);
+    }
+    this._railing(x - w / 2, z - d / 2, x + w / 2, z - d / 2, y);
+    this._railing(x - w / 2, z + d / 2, x + w / 2, z + d / 2, y);
+    this._stairs('wood', { x: x + w / 2 + 0.4, z: z - 1.8, y0: 0, y1: y, dir: '+z', width: 1.4 });
+    this._box('corrugated', x, y + 2.3, z, w + 0.8, 0.1, d + 0.8);
+    for (const sx of [-1, 1]) this._box('wood', x + sx * (w / 2 - 0.3), y + 1.2, z, 0.14, 2.4, 0.14);
+    this._cover(x, z - 1.4, y + 0.02);
+  }
+
+  /** Burnt-out truck: breaks the long east-west lane and gives low cover. */
+  _buildTruck() {
+    const x = -14, z = 15, r = 0.32;
+    const put = (mat, ox, oy, oz, w, h, d, rot = 0) => {
+      const g = boxGeo(w, h, d, TILE[mat]);
+      g.rotateY(rot); g.rotateY(r);
+      g.translate(x + ox * Math.cos(r) - oz * Math.sin(r), oy, z + ox * Math.sin(r) + oz * Math.cos(r));
+      this._geo(mat, g);
+    };
+    put('metal', -1.9, 1.35, 0, 2.4, 1.9, 2.3);            // cab shell
+    put('metal', -1.9, 2.4, 0, 2.2, 0.2, 2.4);
+    put('metal', 0.6, 0.75, 0, 3.4, 0.5, 2.2);             // chassis rails
+    for (let i = 0; i < 6; i++) put('wood', 0.6, 1.15, -1.0 + i * 0.4, 3.2, 0.16, 0.28);
+    put('metal', 2.3, 1.5, 0, 0.16, 1.4, 2.2);
+    for (const sz of [-1, 1]) put('metal', 0.6, 1.6, sz * 1.05, 3.3, 1.2, 0.14);
+    for (const ax of [-1.9, 1.4]) {
+      const g = cylGeo(0.22, 0.22, 2.1, 8, TILE.gunmetal).rotateZ(Math.PI / 2).rotateY(r);
+      g.translate(x + ax * Math.cos(r), 0.5, z + ax * Math.sin(r));
+      this._geo('gunmetal', g);
+    }
+    this._collider(x - 1.9 * Math.cos(r), 1.3, z - 1.9 * Math.sin(r), 2.9, 2.6, 2.9);
+    this._collider(x + 0.6 * Math.cos(r), 1.1, z + 0.6 * Math.sin(r), 4.0, 2.2, 2.8);
+    this._cover(x, z + 2.4); this._cover(x, z - 2.4); this._cover(x - 4, z);
+  }
+
+  /**
+   * Overhead lines. Sag is what sells scale: straight cables read as wires in a
+   * CAD file, drooping ones read as a place people actually wired up badly.
+   */
+  _buildCables() {
+    const poles = [[-24, 8.5], [4, 8.5], [26, 8.5], [50, 8.5], [12, -24], [12, -50], [12, 34]];
+    for (const [px, pz] of poles) {
+      this._geo('wood', cylGeo(0.16, 0.22, 8.2, 6, TILE.wood).translate(px, 4.1, pz));
+      this._collider(px, 4.1, pz, 0.45, 8.2, 0.45);
+      this._box('wood', px, 7.5, pz, 1.8, 0.14, 0.14);
+      this._box('wood', px, 6.9, pz, 1.3, 0.12, 0.12);
+    }
+    for (let i = 0; i < poles.length - 1; i++) {
+      const a = poles[i], b = poles[i + 1];
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 40) continue;
+      for (const o of [-0.7, 0, 0.7]) this._cable(a[0] + o, 7.5, a[1], b[0] + o, 7.5, b[1], 1.1);
+    }
+    this._cable(-28, 7.0, -30, -24, 7.5, 8, 1.4);          // warehouse to the line
+    this._cable(-46, 8.6, 26, -24, 8.6, 46, 2.6);          // apartment to depot
+    this._cable(29.6, 9.0, 34, 50, 7.5, 8.5, 3.0);         // admin to the line
+    this._cable(-53, 6.4, -4, -24, 7.5, 8, 2.2);           // shops to the line
+    this._cable(5.3, 11.6, -2, 26, 7.5, 8.5, 2.4);         // tower to the line
+  }
+
+  /* ---------------------------------------------------------------- props */
+
+  /** One sandbag row; bags are instanced, the run gets a single collider. */
+  _sandbagWall(x0, z0, x1, z1, rows = 3) {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const ang = Math.atan2(-(z1 - z0), x1 - x0);
+    const n = Math.max(1, Math.round(len / 0.56));
+    for (let r = 0; r < rows; r++) {
+      const off = (r & 1) ? 0.5 : 0;                 // stretcher bond, like real bags
+      for (let i = 0; i < n - (r & 1); i++) {
+        const f = (i + 0.5 + off) / n;
+        this._bags.push({
+          x: x0 + (x1 - x0) * f, y: 0.17 + r * 0.3, z: z0 + (z1 - z0) * f,
+          ry: ang + (this._rng() - 0.5) * 0.25,
+          s: 0.92 + this._rng() * 0.18,
+        });
+      }
+    }
+    const h = rows * 0.3;
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const nx = -Math.sin(ang), nz = -Math.cos(ang);
+    this._collider(cx, h / 2, cz, Math.abs(x1 - x0) + 0.5, h, Math.abs(z1 - z0) + 0.5);
+    this._cover(cx + nx * 1.1, cz + nz * 1.1);
+    this._cover(cx - nx * 1.1, cz - nz * 1.1);
+  }
+
+  _sandbagRing(x, y, z, r) {
+    for (let row = 0; row < 2; row++) {
+      for (const s of [-1, 1]) {
+        for (let i = 0; i < 9; i++) {
+          const f = (i + 0.5) / 9;
+          this._bags.push({ x: x - r + 2 * r * f, y: y + 0.17 + row * 0.3, z: z + s * r, ry: 0, s: 1 });
+          this._bags.push({ x: x + s * r, y: y + 0.17 + row * 0.3, z: z - r + 2 * r * f, ry: 1.5708, s: 1 });
+        }
+      }
+    }
+    this._cover(x, z, y + 0.02);
+  }
+
+  /** Jumpable crate ladder — how the roofs and stacks are actually reached. */
+  _stack(x, z, n) {
+    for (let i = 0; i < n; i++) {
+      this._crates.push({ x, y: 0.45 + i * 0.9, z, ry: (this._rng() - 0.5) * 0.2 });
+    }
+    this._collider(x, n * 0.45, z, 1.05, n * 0.9, 1.05);   // one box for the column
+    this._cover(x + 1.4, z);
+  }
+
+  _buildProps() {
+    const barrels = [], jersey = [], hesco = [], pallets = [], rubble = [];
+    const R = this._rng;
+
+    /* Sandbag emplacements: the plaza around the tower, and firing points that
+       cover each approach into it. */
+    this._sandbagWall(-4, 4, 4, 4);
+    this._sandbagWall(8, 2, 8, -6);
+    this._sandbagWall(-5, -8, 1, -8);
+    this._sandbagWall(-8, 3, -8, -4);
+    this._sandbagWall(-2, 26, 6, 26);
+    this._sandbagWall(38, -6, 38, 2);
+    this._sandbagWall(-24, -12, -24, -5);
+    this._sandbagWall(46, 44, 54, 44);
+    this._sandbagWall(-16, 34, -8, 34);
+    this._sandbagWall(18, 52, 18, 60);
+    this._sandbagWall(-40, -8, -34, -8);
+    this._sandbagWall(60, -20, 60, -12);
+
+    /* Jersey barriers channel the two road lanes without sealing them. */
+    const runs = [
+      [-30, 9.2, -18, 9.2], [-6, 9.2, 6, 9.2], [20, 9.2, 32, 9.2], [40, 20.8, 52, 20.8],
+      [-46, 20.8, -34, 20.8], [5.2, -30, 5.2, -18], [16.8, -12, 16.8, 0],
+      [5.2, 30, 5.2, 42], [56, 12, 56, 22], [-60, 36, -50, 36],
+    ];
+    for (const [x0, z0, x1, z1] of runs) {
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const along = x1 === x0 ? 'z' : 'x';
+      const n = Math.max(1, Math.round(len / 3.1));
+      for (let i = 0; i < n; i++) {
+        const f = (i + 0.5) / n;
+        jersey.push({
+          x: x0 + (x1 - x0) * f, y: 0, z: z0 + (z1 - z0) * f,
+          ry: along === 'z' ? Math.PI / 2 : 0,
+        });
+      }
+      this._collider((x0 + x1) / 2, 0.43, (z0 + z1) / 2,
+        along === 'x' ? len : 0.62, 0.86, along === 'x' ? 0.62 : len);
+      this._cover((x0 + x1) / 2 + (along === 'x' ? 0 : 1.2), (z0 + z1) / 2 + (along === 'x' ? 1.2 : 0));
+      this._cover((x0 + x1) / 2 - (along === 'x' ? 0 : 1.2), (z0 + z1) / 2 - (along === 'x' ? 1.2 : 0));
+    }
+
+    /* HESCO bastion — chest-high, indestructible-looking, and the only cover
+       that works out in the open ground north of the plaza. */
+    const bast = [
+      [-14, 4, 4], [10, 44, 4], [44, -6, 3], [-30, 40, 3], [30, 12, 3], [-46, 12, 3],
+    ];
+    for (const [bx, bz, n] of bast) {
+      const horiz = (bx + bz) % 2 === 0;
+      for (let i = 0; i < n; i++) {
+        const ox = horiz ? (i - (n - 1) / 2) * 1.52 : 0;
+        const oz = horiz ? 0 : (i - (n - 1) / 2) * 1.52;
+        hesco.push({ x: bx + ox, y: 0.75, z: bz + oz });
+      }
+      this._collider(bx, 0.75, bz, horiz ? n * 1.52 : 1.5, 1.5, horiz ? 1.5 : n * 1.52);
+      this._cover(bx + (horiz ? 0 : 1.4), bz + (horiz ? 1.4 : 0));
+      this._cover(bx - (horiz ? 0 : 1.4), bz - (horiz ? 1.4 : 0));
+    }
+
+    /* Parkour stacks. Each is the entry to a piece of verticality. */
+    this._stack(19.4, -16.2, 2);        // onto the container yard
+    this._stack(49.6, 30, 3);           // onto the guard post roof
+    this._stack(-24.6, 46.4, 2);        // onto the depot awning
+    this._stack(41.8, -22.6, 2);
+
+    /* Loose crates and pallets — clutter with a purpose: every one of these is
+       a waist-high shooting rest somewhere an AI can actually use. */
+    const clusters = [
+      [-46, -22], [-33, -25], [26, -22], [36, -18], [-56, 14], [-52, -32],
+      [8, -46], [-2, 30], [22, 34], [56, -30], [40, 48],
+      [0, -20], [-18, -36], [62, -4], [30, 58], [-36, 6],
+    ];
+    for (const [cx, cz] of clusters) {
+      const n = 1 + Math.floor(R() * 3);
+      for (let i = 0; i < n; i++) {
+        const x = cx + (R() - 0.5) * 3.4, z = cz + (R() - 0.5) * 3.4;
+        const stacked = R() < 0.3;
+        this._crates.push({ x, y: 0.45, z, ry: (R() - 0.5) * 1.2 });
+        if (stacked) this._crates.push({ x: x + (R() - 0.5) * 0.2, y: 1.35, z, ry: (R() - 0.5) * 1.2 });
+        this._collider(x, stacked ? 0.9 : 0.45, z, 1.15, stacked ? 1.8 : 0.9, 1.15);
+      }
+      for (let i = 0; i < 2; i++) {
+        this._smallCrates.push({
+          x: cx + (R() - 0.5) * 4.5, y: 0.31, z: cz + (R() - 0.5) * 4.5, ry: R() * 3.14,
+        });
+      }
+      if (R() < 0.6) pallets.push({ x: cx + (R() - 0.5) * 5, y: 0.07, z: cz + (R() - 0.5) * 5, ry: R() * 3.14 });
+      this._cover(cx + 1.6, cz + 1.6);
+      this._cover(cx - 1.6, cz - 1.6);
+    }
+
+    /* Oil drums: singles read as junk, groups of four read as a fuel point. */
+    const drums = [[-44, -20], [28, -8], [-54, 20], [14, -34], [46, 20], [-6, 44],
+                   [34, 4], [-28, -44], [58, -38], [-64, -12], [20, 24], [-12, -14]];
+    for (const [cx, cz] of drums) {
+      const n = 2 + Math.floor(R() * 3);
+      for (let i = 0; i < n; i++) {
+        const a = R() * 6.28, r = R() * 1.3;
+        const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+        const tipped = R() < 0.15;
+        barrels.push({
+          x, y: tipped ? 0.29 : 0.44, z, ry: R() * 3.14,
+          rz: tipped ? Math.PI / 2 : 0,
+        });
+      }
+      this._collider(cx, 0.45, cz, 2.6, 0.9, 2.6);
+      this._cover(cx + 2.0, cz);
+    }
+
+    /* Rubble against the ruin and along the blast walls. */
+    for (let i = 0; i < 150; i++) {
+      const near = i < 90;
+      const x = near ? -8 + (R() - 0.5) * 26 : (R() - 0.5) * 130;
+      const z = near ? -50 + (R() - 0.5) * 20 : (R() - 0.5) * 130;
+      if (flatMask(x, z) < 0.25 && !near) continue;
+      rubble.push({
+        x, y: terrainH(x, z) + 0.05, z, ry: R() * 6.28, rx: R() * 0.8,
+        s: 0.2 + R() * 0.45,
+      });
+    }
+
+    for (const l of [this._crates, this._smallCrates, pallets, barrels, jersey, hesco, this._bags]) this._settle(l);
+
+    this._instanced('wood', this._crateGeo(0.9), this._crates, { cast: true, smallProp: true });
+    this._instanced('wood', this._crateGeo(0.62), this._smallCrates, { cast: !this._low, smallProp: true });
+    this._instanced('wood', this._palletGeo(), pallets, { cast: false, smallProp: true });
+    this._instanced('metalOlive', this._barrelGeo(), barrels, { cast: true, smallProp: true });
+    this._instanced('concrete', this._jerseyGeo(), jersey, { cast: true });
+    this._instanced('sand', this._hescoGeo(), hesco, { cast: true, surface: 'sand' });
+    this._instanced('fabric', this._bagGeo(), this._bags, { cast: !this._low, smallProp: true, surface: 'sand' });
+    this._instanced('concrete', this._rockGeo(), rubble, { cast: false, smallProp: true, raycast: false });
+  }
+
+  /**
+   * Props rest on the collision floor at y=0, but the sand dips as much as
+   * 25 cm below it. Dropping each instance into the dip trades a floating crate
+   * — which the eye catches instantly — for a slightly buried one, which it does not.
+   */
+  _settle(list) {
+    for (const p of list) p.y += Math.min(0, terrainH(p.x, p.z));
+  }
+
+  _crateGeo(s) {
+    const parts = [boxGeo(s, s, s, TILE.wood)];
+    const b = s * 0.09, h = s / 2 + 0.005;
+    for (const sy of [-1, 1]) for (const sz of [-1, 1]) parts.push(boxGeo(s + 0.01, b, b, TILE.wood).translate(0, sy * h, sz * h));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(boxGeo(b, s + 0.01, b, TILE.wood).translate(sx * h, 0, sz * h));
+    for (const sx of [-1, 1]) parts.push(boxGeo(b, b * 0.9, s, TILE.wood).translate(sx * h, 0, 0));
+    return mergeGeometries(parts);
+  }
+
+  _palletGeo() {
+    const parts = [];
+    for (let i = 0; i < 5; i++) parts.push(boxGeo(1.2, 0.035, 0.12, TILE.wood).translate(0, 0.06, -0.4 + i * 0.2));
+    for (const sz of [-0.4, 0, 0.4]) parts.push(boxGeo(1.2, 0.09, 0.14, TILE.wood).translate(0, 0, sz));
+    return mergeGeometries(parts);
+  }
+
+  _barrelGeo() {
+    const parts = [cylGeo(0.29, 0.29, 0.88, 10, TILE.metalOlive)];
+    for (const y of [-0.24, 0.24]) parts.push(cylGeo(0.305, 0.305, 0.07, 10, TILE.metalOlive).translate(0, y, 0));
+    parts.push(cylGeo(0.12, 0.12, 0.03, 6, TILE.metalOlive).translate(0.1, 0.45, 0.05));
+    return mergeGeometries(parts);
+  }
+
+  _jerseyGeo() {
+    return mergeGeometries([
+      boxGeo(3.05, 0.24, 0.61, TILE.concrete).translate(0, 0.12, 0),
+      boxGeo(3.05, 0.36, 0.42, TILE.concrete).translate(0, 0.42, 0),
+      boxGeo(3.05, 0.28, 0.22, TILE.concrete).translate(0, 0.72, 0),
+    ]);
+  }
+
+  _hescoGeo() {
+    const parts = [boxGeo(1.5, 1.5, 1.5, TILE.sand)];
+    for (const sy of [-1, 1]) for (const sz of [-1, 1]) parts.push(boxGeo(1.54, 0.06, 0.06, TILE.metal).translate(0, sy * 0.76, sz * 0.76));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(boxGeo(0.06, 1.54, 0.06, TILE.metal).translate(sx * 0.76, 0, sz * 0.76));
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) parts.push(boxGeo(0.06, 0.06, 1.54, TILE.metal).translate(sx * 0.76, sy * 0.76, 0));
+    return mergeGeometries(parts);
+  }
+
+  _bagGeo() {
+    const g = new THREE.SphereGeometry(0.5, 7, 4);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setXYZ(i, pos.getX(i) * 1.15, pos.getY(i) * 0.42, pos.getZ(i) * 0.72);
+    }
+    g.computeVertexNormals();
+    return scaleUV(g, 1.6 / TILE.fabric, 0.5 / TILE.fabric);
+  }
+
+  /* -------------------------------------------------------------- foliage */
+
+  _buildFoliage() {
+    if (!this.settings.foliage) return;
+    const count = this.settings.drawDistance > 300 ? 700 : 380;
+    const list = [];
+    for (let i = 0; i < count * 3 && list.length < count; i++) {
+      const x = (this._rng() - 0.5) * 152, z = (this._rng() - 0.5) * 152;
+      // Nothing grows on a road, a slab, or inside a building footprint.
+      if (flatMask(x, z) < 0.85) continue;
+      list.push({
+        x, y: terrainH(x, z) - 0.05, z, ry: this._rng() * 3.14,
+        s: 0.7 + this._rng() * 0.8,
+      });
+    }
+    const quad = [];
+    for (let i = 0; i < 3; i++) {
+      const g = new THREE.PlaneGeometry(1.0, 0.85).translate(0, 0.42, 0).rotateY(i * 1.047);
+      quad.push(g);
+    }
+    const geo = mergeGeometries(quad);
+    // Flat upward normals: a cross-quad lit by its own facing goes black on the
+    // shaded side, which no dry shrub in direct desert sun ever does.
+    const nrm = geo.attributes.normal;
+    for (let i = 0; i < nrm.count; i++) nrm.setXYZ(i, 0, 1, 0);
+
+    this._tuft = makeTuftTexture();
+    this._tuft.anisotropy = this.settings.maxAnisotropy || 4;
+    const mat = new THREE.MeshStandardMaterial({
+      map: this._tuft, alphaTest: 0.5, side: THREE.DoubleSide,
+      roughness: 0.95, metalness: 0, color: 0xd9cba8,
+    });
+    this._instanced('sand', geo, list, {
+      material: mat, cast: false, receive: false, raycast: false, surface: 'sand',
+    });
+  }
+
+  /* ------------------------------------------------------------- finalize */
+
+  _finalize() {
+    for (const [name, geoms] of this._batches) {
+      if (!geoms.length) continue;
+      const geo = mergeGeometries(geoms);
+      let mat;
+      if (name === 'glass') {
+        // No glazing in the texture library, and none is wanted: a thin tinted
+        // pane with depthWrite off stays cheap and never fights the bloom pass.
+        mat = new THREE.MeshStandardMaterial({
+          color: 0x17242a, roughness: 0.08, metalness: 0.1,
+          transparent: true, opacity: 0.34, depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        this._mats.set('glass', mat);
+      } else {
+        mat = this._material(name);
+      }
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = name !== 'glass';
+      mesh.receiveShadow = name !== 'glass';
+      mesh.userData.surface = SURFACE[name] || 'concrete';
+      mesh.matrixAutoUpdate = false;
+      mesh.updateMatrix();
+      this.scene.add(mesh);
+      this.meshes.push(mesh);
+      this.raycastTargets.push(mesh);
+      this.stats.drawCalls++;
+      this.stats.triangles += geo.index.count / 3;
+    }
+    this._batches.clear();
+
+    this.playerSpawn.set(0, terrainH(0, 58) + 0.05, 58);
+
+    /* Spawns sit behind hard geometry relative to the player start, so a wave
+       never materialises in the open in front of the camera. */
+    const extra = [
+      [-58, 30], [-64, -34], [-6, -62], [40, -52], [64, 40], [16, -56],
+      [-34, -14], [56, -12], [-44, 44], [-56, 58], [-66, 6], [62, 50],
+    ];
+    for (const [x, z] of extra) this.enemySpawns.push(new THREE.Vector3(x, terrainH(x, z) + 0.05, z));
+    for (const s of this.enemySpawns) {
+      s.x = THREE.MathUtils.clamp(s.x, -HALF + 3, HALF - 3);
+      s.z = THREE.MathUtils.clamp(s.z, -HALF + 3, HALF - 3);
+    }
+
+    for (const c of this.coverPoints) {
+      if (c.y < 0.2) c.y = terrainH(c.x, c.z) + 0.05;
+    }
+
+    /* Placement is authored by hand, so a later layout edit can quietly bury a
+       spawn inside a wall. Rejecting anything that intersects a collider is a
+       lot cheaper than discovering it as an enemy stuck in the brickwork. */
+    const clear = (p, pad) => {
+      for (const c of this.colliders) {
+        if (c.max.y < 0.06) continue;                 // the ground slab is not an obstacle
+        if (p.x > c.min.x - pad && p.x < c.max.x + pad &&
+            p.z > c.min.z - pad && p.z < c.max.z + pad &&
+            p.y + 1.7 > c.min.y && p.y < c.max.y - 0.06) return false;
+      }
+      return Math.abs(p.x) < HALF - 1 && Math.abs(p.z) < HALF - 1;
+    };
+    this.enemySpawns = this.enemySpawns.filter(s => clear(s, 0.45));
+    this.coverPoints = this.coverPoints.filter(c => clear(c, 0.05));
+
+    // Backstop: the AI contract needs 30 cover slots even if a layout edit
+    // removes props, so pad from open ground rather than fail late.
+    for (let i = 0; this.coverPoints.length < 30; i++) {
+      const a = i * 0.7, r = 20 + i;
+      const p = new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
+      p.y = terrainH(p.x, p.z) + 0.05;
+      if (clear(p, 0.05)) this.coverPoints.push(p);
+    }
+
+    this.stats.colliders = this.colliders.length;
+    this.stats.triangles = Math.round(this.stats.triangles);
   }
 
   /* -------------------------------------------------------------- queries */
@@ -900,6 +1630,7 @@ export class Level {
       m.geometry.dispose();
     }
     for (const mat of this._mats.values()) mat.dispose();
+    this._tuft?.dispose();
     this.meshes.length = 0;
     this._mats.clear();
   }

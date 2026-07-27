@@ -680,7 +680,7 @@ const WEAPONS = [
     fireMode: 'auto', rpm: 700, magSize: 30, reserve: 210,
     damage: 32, falloff: { start: 22, end: 60, min: 0.55 },
     adsFov: 22, viewFovCut: 6, adsTime: 0.20, eyeRelief: 0.088,
-    hipPos: [0.108, -0.082, -0.255], hipRot: [0.03, -0.10, 0.035],
+    hipPos: [0.108, -0.058, -0.255], hipRot: [0.03, -0.10, 0.035],
     spread: { hip: 2.4, ads: 0.28, move: 2.6, air: 3.4, perShot: 0.34, max: 5.5, decay: 5.0 },
     recoil: {
       vert: 0.52, vertRamp: 0.055, vertMax: 1.7, horiz: 0.30,
@@ -706,7 +706,7 @@ const WEAPONS = [
     fireMode: 'auto', rpm: 900, magSize: 30, reserve: 240,
     damage: 24, falloff: { start: 12, end: 34, min: 0.40 },
     adsFov: 16, viewFovCut: 4, adsTime: 0.14, eyeRelief: 0.062,
-    hipPos: [0.100, -0.076, -0.230], hipRot: [0.035, -0.11, 0.045],
+    hipPos: [0.100, -0.054, -0.230], hipRot: [0.035, -0.11, 0.045],
     spread: { hip: 3.4, ads: 0.55, move: 3.0, air: 4.0, perShot: 0.30, max: 6.6, decay: 6.0 },
     recoil: {
       vert: 0.40, vertRamp: 0.042, vertMax: 1.35, horiz: 0.42,
@@ -730,7 +730,7 @@ const WEAPONS = [
     fireMode: 'semi', rpm: 260, magSize: 10, reserve: 80,
     damage: 92, falloff: { start: 80, end: 160, min: 0.80 },
     adsFov: 40, viewFovCut: 14, adsTime: 0.30, eyeRelief: 0.148,
-    hipPos: [0.135, -0.095, -0.285], hipRot: [0.04, -0.13, 0.05],
+    hipPos: [0.135, -0.070, -0.285], hipRot: [0.04, -0.13, 0.05],
     spread: { hip: 6.5, ads: 0.06, move: 4.2, air: 6.0, perShot: 1.60, max: 11.0, decay: 3.2 },
     recoil: {
       vert: 1.55, vertRamp: 0.10, vertMax: 2.6, horiz: 0.45,

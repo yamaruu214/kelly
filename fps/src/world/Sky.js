@@ -392,19 +392,25 @@ export class Sky {
     // Warm key / cool fill. The split is what stops shadowed faces from going
     // to dead black and is doing more for the "expensive" read than any
     // individual effect in the post chain.
-    this.sunLight = new THREE.DirectionalLight(0xffd9a8, 3.2);
+    // 3.0 rather than 3.2 because the elevation change already multiplied what
+    // lands on the ground plane by 1.7x, and sun-facing walls took none of that
+    // increase — they would be the first thing to clip if the key went up too.
+    this.sunLight = new THREE.DirectionalLight(0xffd9a8, 3.0);
     this.sunLight.castShadow = !!settings.shadows;
     scene.add(this.sunLight);
     scene.add(this.sunLight.target);
 
-    this._shadowSpan = 76;          // metres covered by the ortho frustum
+    // Metres covered by the ortho frustum, from the tier's cascade allowance.
+    this._shadowSpan = SHADOW_SPAN_BY_CASCADES[settings.shadowCascades] || 112;
     this._sunDistance = 165;
     this._configureShadow();
 
-    // Kept low and desaturated because scene.environment already supplies sky
-    // ambient from the IBL; at 0.55 with a saturated blue the two stack and
-    // every shadowed surface in the level turns visibly cyan.
-    this.fillLight = new THREE.HemisphereLight(0x9db4c6, 0x4a4238, 0.26);
+    // Desaturated because scene.environment already supplies sky ambient from
+    // the IBL and the two stack; a saturated blue here turns every shadowed
+    // surface visibly cyan. The level is one term though, not two — at 0.26 the
+    // shadows sat below 4/255 and the frame had no midtones between them and
+    // the sunlit sand.
+    this.fillLight = new THREE.HemisphereLight(0x9db4c6, 0x4a4238, 0.45);
     scene.add(this.fillLight);
 
     // Light-space basis, used to snap the shadow frustum to whole texels.
@@ -437,9 +443,10 @@ export class Sky {
     const h = this._shadowSpan * 0.5;
     s.camera.left = -h; s.camera.right = h;
     s.camera.top = h; s.camera.bottom = -h;
-    // The near plane sits well behind the frustum centre because a 15° sun
-    // throws shadows five times the caster's height; casters have to stay in
-    // the depth range long after they have left the receiver box.
+    // The depth range has to swallow the box's own spread along the light as well
+    // as the casters: at 26° the far edge of a 196m box sits ~100m up- or
+    // down-sun of the centre, so a tight near plane would clip the casters
+    // nearest the light out of the map entirely.
     s.camera.near = 15;
     s.camera.far = this._sunDistance * 2.1;
     s.camera.updateProjectionMatrix();
@@ -448,8 +455,13 @@ export class Sky {
     // in world units against the texel footprint or it either does nothing at
     // 3072 or peter-pans everything at 1024.
     const texel = this._shadowSpan / size;
-    s.bias = -0.0005;
-    s.normalBias = texel * 1.8;
+    // Constant bias is depth-range-relative, and this ortho spans ~330m: -0.0005
+    // was 16cm of push, which detached every wall foot and pole base from its
+    // own shadow. Keep it small enough to be invisible and let normalBias, which
+    // is a world-space offset along the normal and so cannot peter-pan a contact
+    // point, carry the acne suppression instead.
+    s.bias = -0.00008;
+    s.normalBias = texel * 0.7;
     s.radius = this.settings.softShadows ? 2.5 : 1.0;
     s.blurSamples = this.settings.softShadows ? 8 : 4;
   }

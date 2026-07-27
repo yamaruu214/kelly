@@ -89,12 +89,11 @@ function beveledBox(w, h, d, r, seg = 2) {
 }
 
 /**
- * One geometry + material set for the entire enemy population. Sixteen soldiers
- * on ULTRA share these, so the memory cost is a single body's worth.
+ * One geometry + material set for the entire enemy population. Eighteen
+ * soldiers on ULTRA share these, so the memory cost is a single body's worth.
  */
 class EnemyAssets {
-  constructor(textures, settings) {
-    this.settings = settings;
+  constructor(textures) {
     const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 3, 8);
 
     this.geo = {
@@ -269,6 +268,8 @@ class Enemy {
     this.lastSeenPos = new THREE.Vector3();
     this.timeSinceSeen = 999;
     this.alertLevel = 0;
+    this.losCd = 0;
+    this.losCached = false;
 
     /* combat */
     this.burstLeft = 0;
@@ -388,7 +389,7 @@ class Enemy {
     // sponge feels unfair, a soldier who flanks better does not.
     this.maxHealth = 100 + Math.min(90, (wave - 1) * 11);
     this.health = this.maxHealth;
-    this.skill = clamp(0.30 + (wave - 1) * 0.075, 0.3, 0.95);
+    this.skill = clamp(0.30 + (wave - 1) * 0.06, 0.3, 0.88);
 
     this.state = S.IDLE;
     this.stateTime = 0;
@@ -406,6 +407,8 @@ class Enemy {
     this.lean = 0;
     this.canSeePlayer = false;
     this.losTime = 0;
+    this.losCd = 0;
+    this.losCached = false;
     this.timeSinceSeen = 999;
     this.alertLevel = 0;
     this.burstLeft = 0;
@@ -461,8 +464,22 @@ class Enemy {
       const cosang = flat.divideScalar(flatLen).dot(facing);
       // Very close contact bypasses the cone: you notice someone at your elbow.
       if (cosang > VISION_COS || dist < 4) {
-        sees = this.mgr.hasLineOfSight(eye, playerEye, dist);
+        // The cone test is arithmetic and runs every step, but the occlusion
+        // ray is the expensive half, so it refreshes ~14x/second with a
+        // per-enemy offset that keeps the whole squad off the same tick.
+        this.losCd -= dt;
+        if (this.losCd <= 0) {
+          this.losCd = 0.07 + this.seed * 0.03;
+          this.losCached = this.mgr.hasLineOfSight(eye, playerEye, dist);
+        }
+        sees = this.losCached;
+      } else {
+        this.losCached = false;
+        this.losCd = 0;
       }
+    } else {
+      this.losCached = false;
+      this.losCd = 0;
     }
 
     this.canSeePlayer = sees;
@@ -784,8 +801,11 @@ class Enemy {
     // Accuracy model: cone shrinks as LOS persists, and the opening burst is
     // pushed deliberately wide. Getting shot the instant you round a corner is
     // what makes a shooter feel cheap, so the first exchange is a warning.
-    let spread = lerp(0.085, 0.022, this.skill) * (1 + dist * 0.008);
-    spread *= lerp(1.0, 0.35, smoothstep(0, 2.6, this.losTime));
+    // The floors matter more than the ceilings: a cone that closes all the way
+    // turns eight soldiers into eight hitscan lasers and the fight stops being
+    // survivable no matter how much cover the player uses.
+    let spread = lerp(0.10, 0.032, this.skill) * (1 + dist * 0.008);
+    spread *= lerp(1.0, 0.55, smoothstep(0, 2.6, this.losTime));
     spread *= 1 + this.suppression * 1.6;
     if (this.firstBurst) spread += lerp(0.075, 0.035, this.skill);
     if (player.sprinting) spread *= 1.15;
@@ -804,7 +824,7 @@ class Enemy {
 
     if (hitScan.hitPlayer) {
       const falloff = lerp(1, 0.55, smoothstep(18, 55, dist));
-      const dmg = lerp(6, 13, this.skill) * falloff;
+      const dmg = lerp(5.5, 11, this.skill) * falloff;
       player.takeDamage?.(dmg, this.position);
     } else {
       this.mgr.particles?.impact?.(hitScan.point, hitScan.normal);
@@ -1220,7 +1240,7 @@ export class EnemyManager {
     this.settings = settings;
     this.player = null;                    // assigned by main.js after construction
 
-    this.assets = new EnemyAssets(textures, settings);
+    this.assets = new EnemyAssets(textures);
     this.max = Math.max(1, settings.enemyCount | 0);
     this.list = [];
     this.aliveCount = 0;
@@ -1236,6 +1256,7 @@ export class EnemyManager {
     this._seed = 0x2f6e2b1 >>> 0;
     this._ray = new THREE.Raycaster();
     this._volumes = [];
+    this._shortlist = [];
     this._tmpHit = new THREE.Vector3();
     this.eye = new THREE.Vector3(0, 1.6, 0);   // player eye, refreshed once per step
 
@@ -1263,7 +1284,54 @@ export class EnemyManager {
     this.bounds = toBox3(lvl.bounds);
     this.groundY = this.bounds ? this.bounds.min.y : 0;
 
+    this._buildColliderGrid();
     this._buildCoverGraph(lvl.coverPoints || []);
+  }
+
+  /**
+   * Uniform hash grid over the collision boxes. Steering probes, grounding and
+   * ragdoll collision all run per enemy per 1/120s step, and a level with a few
+   * hundred boxes would otherwise turn each of those into a full linear scan.
+   */
+  _buildColliderGrid() {
+    this._cell = 8;
+    this._grid = new Map();
+    this._near = [];
+    for (let i = 0; i < this.colliders.length; i++) {
+      const b = this.colliders[i];
+      const x0 = Math.floor(b.min.x / this._cell), x1 = Math.floor(b.max.x / this._cell);
+      const z0 = Math.floor(b.min.z / this._cell), z1 = Math.floor(b.max.z / this._cell);
+      for (let x = x0; x <= x1; x++) {
+        for (let z = z0; z <= z1; z++) {
+          const k = (x * 73856093) ^ (z * 19349663);
+          let arr = this._grid.get(k);
+          if (!arr) this._grid.set(k, arr = []);
+          arr.push(b);
+        }
+      }
+    }
+  }
+
+  /**
+   * Boxes possibly overlapping a disc. A box is registered in every cell it
+   * touches, so a hash collision only ever adds work — it can never hide a box.
+   */
+  nearbyColliders(x, z, radius) {
+    const out = this._near;
+    out.length = 0;
+    const c = this._cell;
+    const x0 = Math.floor((x - radius) / c), x1 = Math.floor((x + radius) / c);
+    const z0 = Math.floor((z - radius) / c), z1 = Math.floor((z + radius) / c);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cz = z0; cz <= z1; cz++) {
+        const arr = this._grid.get((cx * 73856093) ^ (cz * 19349663));
+        if (!arr) continue;
+        // Duplicates across cells are left in: every consumer is idempotent,
+        // and a dedup scan costs more than the extra box test.
+        for (let i = 0; i < arr.length; i++) out.push(arr[i]);
+      }
+    }
+    return out;
   }
 
   /**
@@ -1376,8 +1444,9 @@ export class EnemyManager {
   groundHeight(x, z, currentY) {
     let y = this.groundY;
     const head = currentY + 1.2;
-    for (let i = 0; i < this.colliders.length; i++) {
-      const b = this.colliders[i];
+    const near = this.nearbyColliders(x, z, 0.3);
+    for (let i = 0; i < near.length; i++) {
+      const b = near[i];
       if (x < b.min.x - 0.25 || x > b.max.x + 0.25) continue;
       if (z < b.min.z - 0.25 || z > b.max.z + 0.25) continue;
       // Only surfaces you could step onto count; a ceiling must not lift a bot.
@@ -1388,8 +1457,9 @@ export class EnemyManager {
 
   /** Push a point out of any box it has entered, along the shallowest axis. */
   resolveCollisions(p, radius) {
-    for (let i = 0; i < this.colliders.length; i++) {
-      const b = this.colliders[i];
+    const near = this.nearbyColliders(p.x, p.z, radius);
+    for (let i = 0; i < near.length; i++) {
+      const b = near[i];
       if (p.y + 1.5 < b.min.y || p.y + 0.2 > b.max.y) continue;   // stepping over / under
       const minX = b.min.x - radius, maxX = b.max.x + radius;
       const minZ = b.min.z - radius, maxZ = b.max.z + radius;
@@ -1418,8 +1488,9 @@ export class EnemyManager {
       prev.z = lerp(prev.z, p.z, 0.45);
       prev.y = p.y;
     }
-    for (let i = 0; i < this.colliders.length; i++) {
-      const b = this.colliders[i];
+    const near = this.nearbyColliders(p.x, p.z, radius);
+    for (let i = 0; i < near.length; i++) {
+      const b = near[i];
       if (p.x < b.min.x - radius || p.x > b.max.x + radius) continue;
       if (p.y < b.min.y - radius || p.y > b.max.y + radius) continue;
       if (p.z < b.min.z - radius || p.z > b.max.z + radius) continue;
@@ -1470,8 +1541,9 @@ export class EnemyManager {
   }
 
   _pointBlocked(x, y, z, radius) {
-    for (let i = 0; i < this.colliders.length; i++) {
-      const b = this.colliders[i];
+    const near = this.nearbyColliders(x, z, radius);
+    for (let i = 0; i < near.length; i++) {
+      const b = near[i];
       if (b.max.y < y + 0.35) continue;          // low enough to walk over
       if (x < b.min.x - radius || x > b.max.x + radius) continue;
       if (z < b.min.z - radius || z > b.max.z + radius) continue;
@@ -1587,9 +1659,9 @@ export class EnemyManager {
 
   releaseFlank(enemy) { this.flankers.delete(enemy); }
 
-  /** Global trigger discipline: bursts start at least 220ms apart. */
+  /** Global trigger discipline: bursts start at least 350ms apart. */
   requestBurst(enemy) {
-    if (this.elapsed - this.lastBurstStart < 0.22) return false;
+    if (this.elapsed - this.lastBurstStart < 0.35) return false;
     this.lastBurstStart = this.elapsed;
     return true;
   }
@@ -1610,18 +1682,39 @@ export class EnemyManager {
    */
   pickCoverNode(enemy, player, forceNew) {
     const eye = this.eye;
-    let best = -1, bestScore = -Infinity;
+
+    // Two passes. The cheap one ranks every node on distance alone; only the
+    // shortlist pays for occlusion rays, so re-planning costs a bounded number
+    // of raycasts however many cover points the level ships with.
+    const shortlist = this._shortlist;
+    shortlist.length = 0;
     for (let i = 0; i < this.coverNodes.length; i++) {
       const node = this.coverNodes[i];
       if (node.owner >= 0 && node.owner !== enemy.index) continue;
       if (forceNew && i === enemy.coverNode) continue;
 
-      const pos = node.pos;
-      const distSelf = pos.distanceTo(enemy.position);
+      const distSelf = node.pos.distanceTo(enemy.position);
       if (distSelf > 34) continue;
-      const distPlayer = pos.distanceTo(player.position);
+      const distPlayer = node.pos.distanceTo(player.position);
       if (distPlayer < 6) continue;                       // not in his lap
 
+      let rough = -distSelf * 1.4 - Math.abs(distPlayer - 16) * 0.9;
+      if (i === enemy.coverNode) rough += 6;              // hysteresis, no dithering
+      shortlist.push(i, rough);
+    }
+
+    const CANDIDATES = 8;
+    let best = -1, bestScore = -Infinity;
+    for (let pick = 0; pick < CANDIDATES; pick++) {
+      let bi = -1, bs = -Infinity;
+      for (let k = 0; k < shortlist.length; k += 2) {
+        if (shortlist[k + 1] > bs) { bs = shortlist[k + 1]; bi = k; }
+      }
+      if (bi < 0) break;
+      const i = shortlist[bi];
+      shortlist[bi + 1] = -Infinity;                      // consumed
+
+      const pos = this.coverNodes[i].pos;
       const stand = _v2.set(pos.x, pos.y + 1.5, pos.z);
       const covered = !this.hasLineOfSight(stand, eye);
       // Cover that never lets you shoot back is a hiding place, not a position:
@@ -1629,12 +1722,7 @@ export class EnemyManager {
       const crouched = _v3.set(pos.x, pos.y + 0.9, pos.z);
       const peekable = this.hasLineOfSight(crouched, eye);
 
-      let score = 0;
-      if (covered) score += 40;
-      if (peekable) score += 12;
-      score -= distSelf * 1.4;
-      score -= Math.abs(distPlayer - 16) * 0.9;           // prefer a mid-range fight
-      if (i === enemy.coverNode) score += 6;              // hysteresis, no dithering
+      const score = bs + (covered ? 40 : 0) + (peekable ? 12 : 0);
       if (score > bestScore) { bestScore = score; best = i; }
     }
     if (best >= 0) {

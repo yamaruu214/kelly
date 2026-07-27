@@ -184,7 +184,10 @@ void main(){
 
   vec3 world = aPos + n * aSprite.z + ax * (position.x * size) + ay * (position.y * size);
 
-  vUv = aSprite.xy + uTile * vec2(position.x + 0.5, 0.5 - position.y);
+  // Inset by half a percent of the cell: at coarse mip levels neighbouring
+  // atlas cells would otherwise bleed a grey halo around every hole.
+  vec2 quv = vec2(position.x + 0.5, 0.5 - position.y);
+  vUv = aSprite.xy + uTile * (quv * 0.988 + 0.006);
   vTint = aTint;
   vAlpha = aSprite.w * (1.0 - smoothstep(0.78, 1.0, t));
 
@@ -214,11 +217,12 @@ void main(){
 }
 `;
 
-/* Multiply tints per type. Values above 1 brighten, which the bullet lip uses. */
+/* Multiply tints per type, jittered per decal so no two hits grade identically.
+   Values above 1 brighten, which is what the bullet hole's bevel lip rides on. */
 const TINTS = {
-  bullet: [1.0, 1.0, 1.0],
-  blood:  [1.0, 1.0, 1.0],
-  scorch: [1.0, 1.0, 1.0],
+  bullet: [1.00, 0.99, 0.97],
+  blood:  [1.00, 0.94, 0.92],
+  scorch: [1.00, 0.98, 0.95],
 };
 const LIVES = { bullet: 55, blood: 28, scorch: 60 };
 const ALPHAS = { bullet: 1.0, blood: 0.92, scorch: 0.85 };
@@ -335,9 +339,10 @@ export class DecalSystem {
     this.aSprite.array[i4 + 3] = ALPHAS[type] ?? 1;
 
     const tint = TINTS[type] || TINTS.bullet;
-    this.aTint.array[i3] = tint[0];
-    this.aTint.array[i3 + 1] = tint[1];
-    this.aTint.array[i3 + 2] = tint[2];
+    const shade = rnd(0.86, 1.10);
+    this.aTint.array[i3] = tint[0] * shade;
+    this.aTint.array[i3 + 1] = tint[1] * shade;
+    this.aTint.array[i3 + 2] = tint[2] * shade;
 
     if (i < this._dirtyMin) this._dirtyMin = i;
     if (i > this._dirtyMax) this._dirtyMax = i;

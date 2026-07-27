@@ -508,6 +508,10 @@ class Enemy {
     this.suppression = Math.max(0, this.suppression - dt * 0.75);
     if (this.repathCd > 0) this.repathCd -= dt;
     if (this.reactionCd > 0) this.reactionCd -= dt;
+    // Trigger timers run everywhere, so time spent behind cover still counts
+    // toward the next burst instead of freezing the man mid-reload.
+    if (this.fireCd > 0) this.fireCd -= dt;
+    if (this.burstCd > 0) this.burstCd -= dt;
 
     const distToPlayer = this.position.distanceTo(player.position);
 
@@ -714,6 +718,7 @@ class Enemy {
 
     // Legs face travel; the torso is free to look elsewhere. That separation is
     // the whole reason the skeleton exists.
+    const travelYaw = this.speed > 0.35 ? Math.atan2(this.velocity.x, this.velocity.z) : null;
     const aimAt = this.aimTarget || (this.canSeePlayer || this.timeSinceSeen < 4 ? this.lastSeenPos : null);
     if (aimAt) {
       const dx = (this.canSeePlayer ? player.position.x : aimAt.x) - this.position.x;
@@ -722,10 +727,16 @@ class Enemy {
       const dy = (this.canSeePlayer ? player.position.y + 1.5 : aimAt.y + 1.5) - (this.position.y + 1.45);
       this.aimPitch = approach(this.aimPitch, clamp(Math.atan2(dy, Math.max(0.5, Math.hypot(dx, dz))), -0.7, 0.7), 8, dt);
     } else {
+      // Without this the vision cone stays pinned to the spawn heading and a
+      // patrolling soldier walks straight past the player without seeing him.
+      const scan = travelYaw !== null
+        ? travelYaw
+        : this.yaw + Math.sin(this.mgr.elapsed * 0.4 + this.seed * TAU) * 1.0;
+      this.aimYaw += angleDelta(this.aimYaw, scan) * Math.min(1, dt * 3);
       this.aimPitch = approach(this.aimPitch, 0, 3, dt);
     }
 
-    const moveYaw = this.speed > 0.35 ? Math.atan2(this.velocity.x, this.velocity.z) : this.aimYaw;
+    const moveYaw = travelYaw !== null ? travelYaw : this.aimYaw;
     // If the torso would have to twist past its limit, the hips come around.
     const twist = angleDelta(moveYaw, this.aimYaw);
     const bodyYaw = Math.abs(twist) > 1.15 ? this.aimYaw - Math.sign(twist) * 1.15 : moveYaw;
@@ -737,8 +748,6 @@ class Enemy {
   /* ------------------------------------------------------------------ combat */
 
   _fireLogic(dt, player, dist, willingness) {
-    if (this.fireCd > 0) this.fireCd -= dt;
-    if (this.burstCd > 0) this.burstCd -= dt;
     if (!this.canSeePlayer || this.suppression > 0.6) return;
     if (dist > 62) return;
 

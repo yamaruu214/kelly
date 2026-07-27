@@ -195,7 +195,7 @@ export class PostFX {
         float contrib = max(soft, l - uThreshold) / max(l, 0.0001);
         fragColor = vec4(c * contrib, 1.0);
       }
-    `, { tScene: { value: null }, uThreshold: { value: 1.05 }, uKnee: { value: 0.6 }, uExposure: { value: 1 } });
+    `, { tScene: { value: null }, uThreshold: { value: 1.35 }, uKnee: { value: 0.6 }, uExposure: { value: 1 } });
 
     /* ---- 13-tap downsample (Jimenez / COD Advanced Warfare filter) ---- */
     this.downPass = new Pass(/* glsl */`
@@ -304,13 +304,23 @@ export class PostFX {
 
         col = aces(col);
 
-        // Grade in display space: saturation then contrast around 0.5 pivot.
+        // Grade in display space: saturation, then split tone, then contrast.
         float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
         col = mix(vec3(lum), col, uSaturation);
-        col = clamp((col - 0.5) * uContrast + 0.5, 0.0, 1.0);
 
-        // Slight teal push in shadows, warm in highlights — filmic split tone.
-        col = mix(col * vec3(0.94, 0.99, 1.06), col * vec3(1.05, 1.00, 0.94), smoothstep(0.25, 0.85, lum));
+        // Filmic split tone. The shadow leg is near-neutral on purpose: the sky
+        // IBL already makes every shadow cool, and a teal push on top of that
+        // was compounding into an overall blue cast.
+        vec3 tint = mix(vec3(1.00, 0.99, 1.02), vec3(1.05, 1.00, 0.94),
+                        smoothstep(0.25, 0.85, lum));
+        // Released at the very top of the range so clipped sky stays neutral
+        // white; tinting an already-clipped value just makes a flat cream card.
+        tint = mix(tint, vec3(1.0), smoothstep(0.90, 1.0, lum));
+        col *= tint;
+
+        // Runs last, and at 1.0 by default: a contrast stretch around a 0.5
+        // pivot widens exactly the shadow/highlight gap this scene already has.
+        col = clamp((col - 0.5) * uContrast + 0.5, 0.0, 1.0);
 
         col *= smoothstep(uVignette, uVignette - 0.55, r2);
 
@@ -335,8 +345,8 @@ export class PostFX {
       // smoothstep with t = (uVignette - r2) / 0.55. At 0.62 that put the
       // corners at 0.12 — an 88% crush applied after the grade, which is where
       // a quarter of every frame was going black. 0.90 lands them near 0.82.
-      uVignette: { value: 0.90 }, uGrain: { value: 0.035 }, uChroma: { value: 0.0014 },
-      uSaturation: { value: 1.06 }, uContrast: { value: 1.05 },
+      uVignette: { value: 0.90 }, uGrain: { value: 0.035 }, uChroma: { value: 0.0006 },
+      uSaturation: { value: 1.06 }, uContrast: { value: 1.00 },
       uFlash: { value: 0 }, uDamage: { value: 0 }, uAO: { value: 0.85 },
       uDofStrength: { value: 0 }, uDofFocus: { value: 12 }, uNear: { value: 0.1 }, uFar: { value: 500 },
       uUseAO: { value: 0 },
@@ -473,7 +483,7 @@ export class PostFX {
     cu.uBloomStrength.value = this.settings.bloom ? 0.5 : 0;
     cu.uTime.value = this.time;
     cu.uGrain.value = this.settings.grain ? 0.035 : 0;
-    cu.uChroma.value = this.settings.chromatic ? 0.0014 : 0;
+    cu.uChroma.value = this.settings.chromatic ? 0.0006 : 0;
     cu.uFlash.value = this.flashAmount;
     cu.uDamage.value = this.damageAmount;
     cu.uNear.value = this.camera.near;

@@ -96,10 +96,11 @@ export class Game {
     // applied as deltas off it each frame in _postStep.
     this.baseFov = this.settings.fov ?? 80;
     // Measured, not guessed. 0.78 crushed 22-27% of frame to black; 1.40 then
-    // overshot to 32-46% clipped with the median at 181, because the sky rig
-    // was independently brightened at the same time and the two compounded.
-    // 0.95 targets a median near 120 with both tails in low single digits.
-    this.baseExposure = 0.95;
+    // overshot to 32-46% clipped. 0.95 balanced the tails but left the frame
+    // bimodal, because the real problem was an 11:1 sky-to-ground ratio rather
+    // than the exposure point. That ratio is now closed at the source — sky
+    // scale down, key light up — so this can sit slightly hot again.
+    this.baseExposure = 1.10;
 
     // The viewmodel lives in its own scene rendered with a narrow FOV so the
     // weapon never clips into world geometry, exactly like every modern FPS.

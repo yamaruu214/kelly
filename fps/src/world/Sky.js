@@ -401,8 +401,9 @@ export class Sky {
     scene.add(this.sunLight.target);
 
     // Metres covered by the ortho frustum, from the tier's cascade allowance.
+    // _sunDistance falls out of the span and the sun angle, so _configureShadow
+    // owns it.
     this._shadowSpan = SHADOW_SPAN_BY_CASCADES[settings.shadowCascades] || 112;
-    this._sunDistance = 165;
     this._configureShadow();
 
     // Desaturated because scene.environment already supplies sky ambient from
@@ -443,24 +444,33 @@ export class Sky {
     const h = this._shadowSpan * 0.5;
     s.camera.left = -h; s.camera.right = h;
     s.camera.top = h; s.camera.bottom = -h;
-    // The depth range has to swallow the box's own spread along the light as well
-    // as the casters: at 26° the far edge of a 196m box sits ~100m up- or
-    // down-sun of the centre, so a tight near plane would clip the casters
-    // nearest the light out of the map entirely.
-    s.camera.near = 15;
-    s.camera.far = this._sunDistance * 2.1;
+
+    /* The ortho box is square in light space but the ground it lands on is a long
+       strip: a receiver h off-centre along the light's up axis has to sit
+       h/tan(elevation) up- or down-sun to stay at y=0. At 26° a 152m span
+       therefore reaches ~156m either side of the centre plane, so the depth range
+       has to be derived, not fixed — a near/far pair sized for the old 76m box
+       would clip the up-sun half of the map back out again, which looks identical
+       to the shadows simply stopping short. The 60m of slack covers the tallest
+       casters and a few degrees of drift between rebuilds. */
+    const reach = h / Math.tan(Math.max(12, this.elevation) * D2R);
+    this._sunDistance = reach + 60;
+    s.camera.near = 20;
+    s.camera.far = this._sunDistance + reach + 60;
     s.camera.updateProjectionMatrix();
 
-    // Grazing light is the worst case for acne, and normalBias has to be sized
-    // in world units against the texel footprint or it either does nothing at
-    // 3072 or peter-pans everything at 1024.
     const texel = this._shadowSpan / size;
-    // Constant bias is depth-range-relative, and this ortho spans ~330m: -0.0005
-    // was 16cm of push, which detached every wall foot and pole base from its
-    // own shadow. Keep it small enough to be invisible and let normalBias, which
-    // is a world-space offset along the normal and so cannot peter-pan a contact
-    // point, carry the acne suppression instead.
-    s.bias = -0.00008;
+    /* Constant bias is a fraction of the depth range, so the same number means
+       different things on every tier and meant 16cm of push on the old frustum —
+       enough to lift every wall foot and pole base clear of its own shadow. Fixed
+       in metres instead: 3cm, which at 26° displaces a contact edge by 6cm rather
+       than 33cm. Sizing the span against each tier's map keeps the texel footprint
+       near 7cm everywhere, so one pair of numbers is honest on all of them, and
+       the higher sun helps twice — grazing depth error goes as cot(elevation), so
+       26° needs 1.8x less bias than 15° did for the same footprint. normalBias is
+       the knob if acne comes back; it offsets along the normal, which costs less
+       contact than pushing depth does. */
+    s.bias = -0.03 / (s.camera.far - s.camera.near);
     s.normalBias = texel * 0.7;
     s.radius = this.settings.softShadows ? 2.5 : 1.0;
     s.blurSamples = this.settings.softShadows ? 8 : 4;
@@ -769,6 +779,9 @@ export class Sky {
 
       if (this._pmrem && Math.abs(this.elevation - this._envElevation) > ENV_REBUILD_DEG) {
         this._rebuildSunBasis();
+        // The frustum's depth reach goes as cot(elevation), so it has to follow
+        // the drift or the up-sun edge of the map slides out of the far plane.
+        this._configureShadow();
         this._renderEnvironment();
       }
     }

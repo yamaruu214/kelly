@@ -674,15 +674,17 @@ export class WeaponSystem {
   /* ------------------------------------------------------------ assembly */
 
   _buildViewLights() {
-    // The viewmodel scene is rendered standalone with a cleared depth buffer, so
-    // it sees none of the world's lights and needs its own three-point set.
-    const key = new THREE.DirectionalLight(0xfff2e0, 2.4);
+    // The viewmodel scene is rendered on a cleared depth range, so it sees none
+    // of the world's lights and needs its own three-point set. Intensities are
+    // deliberately low: the rig also receives the scene's IBL, and it is now
+    // tone-mapped with the world, so pre-ACES values above ~1.5 read as chalk.
+    const key = new THREE.DirectionalLight(0xfff2e0, 1.35);
     key.position.set(0.55, 1.0, 0.75);
-    const fill = new THREE.DirectionalLight(0x93b0d8, 0.85);
+    const fill = new THREE.DirectionalLight(0x93b0d8, 0.45);
     fill.position.set(-0.9, -0.15, 0.45);
-    const rim = new THREE.DirectionalLight(0xffffff, 1.5);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.75);
     rim.position.set(-0.35, 0.35, -1.0);
-    const amb = new THREE.HemisphereLight(0xa8c4e8, 0x1a1712, 0.55);
+    const amb = new THREE.HemisphereLight(0xa8c4e8, 0x1a1712, 0.25);
     this.viewScene.add(key, fill, rim, amb);
     this.viewScene.environment = this.scene?.environment || null;
   }
@@ -1043,7 +1045,9 @@ export class WeaponSystem {
     this.adsFovReduction = w.adsFov;
 
     if (this.viewCamera) {
-      const fov = 55 - this.adsProgress * w.viewFovCut;
+      // 70 rather than 55: at a hip distance of ~26cm a narrower viewmodel FOV
+      // makes the rifle fill nearly half the frame and crop at the corner.
+      const fov = 70 - this.adsProgress * w.viewFovCut;
       if (Math.abs(this.viewCamera.fov - fov) > 0.01) {
         this.viewCamera.fov = fov;
         this.viewCamera.updateProjectionMatrix();

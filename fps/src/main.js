@@ -95,6 +95,7 @@ export class Game {
     // Hip-fire FOV. The HUD's FOV slider writes here; ADS and sprint are
     // applied as deltas off it each frame in _postStep.
     this.baseFov = this.settings.fov ?? 80;
+    this.baseExposure = 0.78;
 
     // The viewmodel lives in its own scene rendered with a narrow FOV so the
     // weapon never clips into world geometry, exactly like every modern FPS.
@@ -315,7 +316,9 @@ export class Game {
     this.post.adsAmount = this.weapons.adsProgress;
     this.post.damageAmount = Math.max(0, this.post.damageAmount - dt * 1.6);
     this.post.flashAmount = Math.max(0, this.post.flashAmount - dt * 3.0);
-    this.post.exposure = this.weapons.exposureBoost;
+    // Golden-hour sky is far brighter than the shaded ground; without pulling
+    // the base down the whole upper half of frame clips before ACES can roll off.
+    this.post.exposure = this.baseExposure * this.weapons.exposureBoost;
 
     // Aiming narrows the FOV; sprinting widens it. Both are eased, not snapped.
     const targetFov = this.baseFov - this.weapons.adsProgress * this.weapons.adsFovReduction
@@ -333,17 +336,12 @@ export class Game {
   }
 
   _render(dt) {
+    // PostFX draws the viewmodel into the HDR buffer itself, on a cleared
+    // depth range, so the weapon is tone-mapped and blooms like the world.
+    const showWeapon = this.state === 'playing' || this.state === 'paused';
+    this.post.viewScene = showWeapon ? this.weapons.viewScene : null;
+    this.post.viewCamera = this.viewCamera;
     this.post.render(dt);
-
-    // Viewmodel on top, with a cleared depth buffer so it never intersects
-    // the world. Rendered directly to the back buffer after post so the gun
-    // stays crisp while the world carries the grain and DOF.
-    if (this.state === 'playing' || this.state === 'paused') {
-      this.renderer.autoClear = false;
-      this.renderer.clearDepth();
-      this.renderer.render(this.weapons.viewScene, this.viewCamera);
-      this.renderer.autoClear = true;
-    }
   }
 }
 

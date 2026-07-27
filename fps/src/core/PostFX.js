@@ -277,7 +277,9 @@ export class PostFX {
         }
 
         // Depth of field: a cheap 6-tap ring, only meaningful while aiming.
-        if (uDofStrength > 0.001){
+        // The 0.6m near guard keeps the viewmodel out of the blur; it shares
+        // this buffer and would otherwise defocus completely while aiming.
+        if (uDofStrength > 0.001 && linearDepth(texture(tDepth, uv).r) > 0.6){
           float d = linearDepth(texture(tDepth, uv).r);
           float coc = clamp(abs(d - uDofFocus) / max(uDofFocus, 1.0), 0.0, 1.0) * uDofStrength;
           if (coc > 0.004){
@@ -389,6 +391,17 @@ export class PostFX {
     r.setRenderTarget(this.sceneRT);
     r.clear();
     r.render(this.scene, this.camera);
+
+    // The viewmodel renders into the same HDR buffer on a cleared depth range,
+    // so it is tone-mapped and bloomed with everything else. Rendering it after
+    // the composite instead would write raw HDR straight to the back buffer,
+    // where anything above 1.0 clips to flat white.
+    if (this.viewScene && this.viewCamera) {
+      r.autoClear = false;
+      r.clearDepth();
+      r.render(this.viewScene, this.viewCamera);
+      r.autoClear = true;
+    }
 
     if (!this.enabled) {
       r.setRenderTarget(null);

@@ -123,7 +123,7 @@ float fbm(vec2 p){
 
 /**
  * Single-scattering radiance for a view ray.
- * `fex` returns the extinction along that ray and `sunE` the sun's irradiance,
+ * fex returns the extinction along that ray and sunE the sun's irradiance,
  * both of which the cloud and sun-disc code reuse instead of recomputing.
  */
 vec3 atmosphere(vec3 rd, vec3 sd, out vec3 fex, out float sunE){
@@ -348,7 +348,10 @@ export class Sky {
     this._sunDistance = 165;
     this._configureShadow();
 
-    this.fillLight = new THREE.HemisphereLight(0x7ba3c9, 0x4a4238, 0.55);
+    // Kept low and desaturated because scene.environment already supplies sky
+    // ambient from the IBL; at 0.55 with a saturated blue the two stack and
+    // every shadowed surface in the level turns visibly cyan.
+    this.fillLight = new THREE.HemisphereLight(0x9db4c6, 0x4a4238, 0.26);
     scene.add(this.fillLight);
 
     // Light-space basis, used to snap the shadow frustum to whole texels.

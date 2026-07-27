@@ -49,7 +49,7 @@ const MANTLE_MIN = 0.50;
 const MANTLE_MAX = 1.60;
 
 const FALL_SAFE = 7;                 // m/s of impact absorbed for free
-const FALL_LETHAL = 17;
+const FALL_LETHAL = 19;              // ~8.2m drop; below that it only hurts
 const REGEN_DELAY = 5;
 const REGEN_TIME = 4;
 
@@ -96,7 +96,8 @@ export class PlayerController {
     this.sliding = false;
     this.mantling = false;
     this.dead = false;
-    this.canFire = true;
+    this.canFire = true;        // weapons gate on this: false while sprinting out
+    this.sprintOutTimer = 0;
 
     this.onDamage = null;
     this.onDeath = null;
@@ -221,8 +222,13 @@ export class PlayerController {
       const dz = p.z - clamp(p.z, b.min.z, b.max.z);
       if (dx * dx + dz * dz >= RADIUS * RADIUS) continue;
       if (p.y >= b.max.y - EPS || p.y + h <= b.min.y + EPS) continue;
-      if (dy <= 0) { p.y = b.max.y; result = 1; }
-      else { p.y = b.min.y - h; result = 2; }
+      // Falling normally means landing on the top face, but if the shallower fix
+      // is downward it is the head that is inside — a spawn under an overhang
+      // must not be flung onto the roof.
+      const up = b.max.y - p.y;
+      const down = p.y - (b.min.y - h);
+      if (dy > 0 || (dy <= 0 && down < up)) { p.y = b.min.y - h; result = 2; }
+      else { p.y = b.max.y; result = 1; }
     }
     return result;
   }
@@ -313,6 +319,7 @@ export class PlayerController {
     }
     this.sprinting = sprintWanted && this._sprintRamp > 0.05;
     this._sprintOut = Math.max(0, this._sprintOut - dt);
+    this.sprintOutTimer = this._sprintOut;
     this.canFire = !this.sprinting && this._sprintOut <= 0 && !this.mantling;
 
     /* ------------------------------------------------------- wish vector */
@@ -332,11 +339,25 @@ export class PlayerController {
     /* ------------------------------------------------------------ ground */
     if (this.sliding) {
       this._slideMove(dt, wish, wishLen);
-    } else if (this.isGrounded) {
-      this._friction(dt);
-      this._accelerate(dt, wish, wishSpeed, GROUND_ACCEL);
     } else {
-      this._accelerate(dt, wish, Math.min(wishSpeed, SPEED_WALK), AIR_ACCEL);
+      const before = Math.hypot(this.velocity.x, this.velocity.z);
+      if (this.isGrounded) {
+        this._friction(dt);
+        this._accelerate(dt, wish, wishSpeed, GROUND_ACCEL);
+      } else {
+        this._accelerate(dt, wish, Math.min(wishSpeed, SPEED_WALK), AIR_ACCEL);
+      }
+      // Accelerate only limits the component along the wish direction, so running
+      // diagonally into a wall (which zeroes one axis every step) would otherwise
+      // pump speed up by 1.41x — the Quake wall-strafe. Momentum already earned
+      // (a slide, an explosion) is preserved and left to friction.
+      const after = Math.hypot(this.velocity.x, this.velocity.z);
+      const cap = Math.max(wishSpeed, before);
+      if (after > cap + 1e-4) {
+        const s = cap / after;
+        this.velocity.x *= s;
+        this.velocity.z *= s;
+      }
     }
 
     /* -------------------------------------------------------------- jump */

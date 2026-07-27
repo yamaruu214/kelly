@@ -331,7 +331,11 @@ export class PostFX {
       tScene: { value: null }, tBloom: { value: null }, tAO: { value: null }, tDepth: { value: null },
       uRes: { value: new THREE.Vector2() },
       uExposure: { value: 1.0 }, uBloomStrength: { value: 0.55 }, uTime: { value: 0 },
-      uVignette: { value: 0.62 }, uGrain: { value: 0.035 }, uChroma: { value: 0.0022 },
+      // r2 peaks at 0.5 in the corners, and the falloff below resolves to
+      // smoothstep with t = (uVignette - r2) / 0.55. At 0.62 that put the
+      // corners at 0.12 — an 88% crush applied after the grade, which is where
+      // a quarter of every frame was going black. 0.90 lands them near 0.82.
+      uVignette: { value: 0.90 }, uGrain: { value: 0.035 }, uChroma: { value: 0.0014 },
       uSaturation: { value: 1.06 }, uContrast: { value: 1.05 },
       uFlash: { value: 0 }, uDamage: { value: 0 }, uAO: { value: 0.85 },
       uDofStrength: { value: 0 }, uDofFocus: { value: 12 }, uNear: { value: 0.1 }, uFar: { value: 500 },
@@ -469,7 +473,7 @@ export class PostFX {
     cu.uBloomStrength.value = this.settings.bloom ? 0.5 : 0;
     cu.uTime.value = this.time;
     cu.uGrain.value = this.settings.grain ? 0.035 : 0;
-    cu.uChroma.value = this.settings.chromatic ? 0.0022 : 0;
+    cu.uChroma.value = this.settings.chromatic ? 0.0014 : 0;
     cu.uFlash.value = this.flashAmount;
     cu.uDamage.value = this.damageAmount;
     cu.uNear.value = this.camera.near;

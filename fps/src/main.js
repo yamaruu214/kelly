@@ -95,7 +95,10 @@ export class Game {
     // Hip-fire FOV. The HUD's FOV slider writes here; ADS and sprint are
     // applied as deltas off it each frame in _postStep.
     this.baseFov = this.settings.fov ?? 80;
-    this.baseExposure = 0.78;
+    // Sized against the sky's absolute luminance rather than by eye: at 0.78
+    // sunlit sand landed at 24% value, a stop and a half under, which crushed
+    // a quarter of every frame to black while the sky still clipped.
+    this.baseExposure = 1.40;
 
     // The viewmodel lives in its own scene rendered with a narrow FOV so the
     // weapon never clips into world geometry, exactly like every modern FPS.

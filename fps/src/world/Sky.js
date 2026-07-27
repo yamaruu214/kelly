@@ -15,10 +15,11 @@ import * as THREE from 'three';
 const D2R = Math.PI / 180;
 
 /* Golden hour. What reaches flat ground is the key times sin(elevation), so 15°
-   delivered 0.26 of it and left sunlit sand a stop and a half under while the
-   sky above it clipped. 26° gives 0.44, still rakes hard (a caster throws two of
-   its own heights) and is still low enough for a warm, reddened key. */
-const SUN_ELEVATION = 26.0;
+   delivered only 0.26 of it and left sunlit sand a stop and a half under. 26°
+   fixed the exposure but bought it with warmth: a higher sun scatters less, so
+   both the sky and the IBL it feeds turned blue and the whole frame went cold.
+   21° gives 0.36 of the key, still rakes hard, and keeps the reddened light. */
+const SUN_ELEVATION = 21.0;
 const SUN_AZIMUTH = 118.0;
 
 /* ~0.2°/min. A ten-minute session loses two degrees, which nobody consciously
@@ -395,7 +396,7 @@ export class Sky {
     // 3.0 rather than 3.2 because the elevation change already multiplied what
     // lands on the ground plane by 1.7x, and sun-facing walls took none of that
     // increase — they would be the first thing to clip if the key went up too.
-    this.sunLight = new THREE.DirectionalLight(0xffd9a8, 3.0);
+    this.sunLight = new THREE.DirectionalLight(0xffd2a0, 3.3);
     this.sunLight.castShadow = !!settings.shadows;
     scene.add(this.sunLight);
     scene.add(this.sunLight.target);
@@ -411,7 +412,7 @@ export class Sky {
     // surface visibly cyan. The level is one term though, not two — at 0.26 the
     // shadows sat below 4/255 and the frame had no midtones between them and
     // the sunlit sand.
-    this.fillLight = new THREE.HemisphereLight(0x9db4c6, 0x4a4238, 0.45);
+    this.fillLight = new THREE.HemisphereLight(0xa6b5bd, 0x50463a, 0.28);
     scene.add(this.fillLight);
 
     // Light-space basis, used to snap the shadow frustum to whole texels.
@@ -624,7 +625,7 @@ export class Sky {
     scene.environment = this.envMap;
     // The IBL is the only thing lighting a surface that faces neither the key nor
     // much of the upper hemisphere. At 0.6 those surfaces were black holes.
-    scene.environmentIntensity = 0.9;
+    scene.environmentIntensity = 0.68;
   }
 
   /**

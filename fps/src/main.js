@@ -92,6 +92,10 @@ export class Game {
       80, 1, 0.05, this.settings.drawDistance);
     this.camera.rotation.order = 'YXZ';    // yaw then pitch — no roll drift
 
+    // Hip-fire FOV. The HUD's FOV slider writes here; ADS and sprint are
+    // applied as deltas off it each frame in _postStep.
+    this.baseFov = this.settings.fov ?? 80;
+
     // The viewmodel lives in its own scene rendered with a narrow FOV so the
     // weapon never clips into world geometry, exactly like every modern FPS.
     this.viewCamera = new THREE.PerspectiveCamera(55, 1, 0.002, 4);
@@ -314,7 +318,7 @@ export class Game {
     this.post.exposure = this.weapons.exposureBoost;
 
     // Aiming narrows the FOV; sprinting widens it. Both are eased, not snapped.
-    const targetFov = 80 - this.weapons.adsProgress * this.weapons.adsFovReduction
+    const targetFov = this.baseFov - this.weapons.adsProgress * this.weapons.adsFovReduction
                          + (this.player.sprinting ? 6 : 0);
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 12);
     this.camera.updateProjectionMatrix();

@@ -28,7 +28,7 @@ const DEFAULTS = {
 
 const BASE_SENS = 0.0022;
 const BASE_TOUCH_SENS = 0.0040;
-const BASE_FOV = 80;              // main.js's hardcoded target; we offset from it
+const BASE_FOV = 80;              // fallback only, for crosshair math pre-boot
 
 const TIER_BY_NAME = { low: TIER.LOW, medium: TIER.MED, high: TIER.HIGH, ultra: TIER.ULTRA };
 
@@ -373,16 +373,10 @@ export class HUD {
     this._updatePerf(dt, game);
   }
 
-  /**
-   * main.js recomputes camera.fov from a hardcoded 80 every frame and calls us
-   * afterwards, so re-basing here is the only place a user FOV survives — and
-   * it preserves the ADS/sprint deltas main.js just baked in.
-   */
+  /** main.js eases camera.fov toward game.baseFov, applying ADS and sprint as
+   *  deltas off it, so the slider only has to move the base. */
   _applyFov(game) {
-    const want = this.prefs.fov;
-    if (want === BASE_FOV || !game.camera) return;
-    game.camera.fov += want - BASE_FOV;
-    game.camera.updateProjectionMatrix();
+    game.baseFov = this.prefs.fov;
   }
 
   _updateAmmo(game) {

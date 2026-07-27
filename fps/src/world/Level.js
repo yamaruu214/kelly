@@ -225,7 +225,10 @@ function makeTuftTexture() {
     for (let t = 0; t <= 40; t++) {
       const f = t / 40;
       const x = x0 + lean * f * f;
-      const y = (S - 2) - f * len * (S - 4);
+      // DataTexture uploads unflipped, so row 0 is v=0 — the edge of the card
+      // that meets the ground. Blades grow up the buffer, not down it, or the
+      // quad hangs base-up and the tips dissolve into the sand.
+      const y = 2 + f * len * (S - 4);
       const wpx = 1.6 * (1 - f * 0.85);
       for (let dx = -2; dx <= 2; dx++) {
         const px = Math.round(x + dx), py = Math.round(y);
@@ -1519,10 +1522,17 @@ export class Level {
       quad.push(g);
     }
     const geo = mergeGeometries(quad);
-    // Flat upward normals: a cross-quad lit by its own facing goes black on the
-    // shaded side, which no dry shrub in direct desert sun ever does.
+    /* Blended card normal. Mostly world-up, so a tuft gathers sky light like the
+       sand it grows out of instead of tracking a low sun down to N·L ≈ 0.26 and
+       reading black; the rest is the quad's own facing, which is what keeps a
+       side-lit tuft from flattening into a single unlit tone. */
     const nrm = geo.attributes.normal;
-    for (let i = 0; i < nrm.count; i++) nrm.setXYZ(i, 0, 1, 0);
+    const UP = 0.6, FACE = 0.4;
+    for (let i = 0; i < nrm.count; i++) {
+      const nx = nrm.getX(i) * FACE, ny = nrm.getY(i) * FACE + UP, nz = nrm.getZ(i) * FACE;
+      const inv = 1 / Math.hypot(nx, ny, nz);
+      nrm.setXYZ(i, nx * inv, ny * inv, nz * inv);
+    }
 
     this._tuft = makeTuftTexture();
     this._tuft.anisotropy = this.settings.maxAnisotropy || 4;

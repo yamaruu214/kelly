@@ -505,7 +505,7 @@ class Enemy {
 
   _think(dt, player) {
     this.stateTime += dt;
-    this.suppression = Math.max(0, this.suppression - dt * 0.75);
+    this.suppression = Math.max(0, this.suppression - dt * 1.1);
     if (this.repathCd > 0) this.repathCd -= dt;
     if (this.reactionCd > 0) this.reactionCd -= dt;
     // Trigger timers run everywhere, so time spent behind cover still counts
@@ -1808,9 +1808,10 @@ export class EnemyManager {
       const r = e.boundingSphere(centre);
       const near = raySphere(origin, dir, centre, r);
       if (near < 0 || near > maxDist) {
-        // Near miss inside a 2.5m corridor still makes a man duck.
+        // A round cracking past inside 1.8m makes a man duck. The corridor is
+        // deliberately tight: a wide one lets one player pin an entire squad.
         const d2 = pointSegDistSq(centre, origin, _v2.copy(origin).addScaledVector(dir, maxDist));
-        if (d2 < 6.25) e.suppress(0.55);
+        if (d2 < 3.24) e.suppress(0.38);
         continue;
       }
       if (near > bestT) continue;

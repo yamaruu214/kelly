@@ -523,7 +523,7 @@ export function makeStandardMaterial(lib, name, opts = {}) {
   ormMap.channel = 0;
 
   return new THREE.MeshStandardMaterial({
-    map, normalMap, ormMap,
+    map, normalMap,
     aoMap: ormMap, roughnessMap: ormMap, metalnessMap: ormMap,
     roughness: 1, metalness: 1,       // scaled by the packed channels
     normalScale: new THREE.Vector2(1, 1),

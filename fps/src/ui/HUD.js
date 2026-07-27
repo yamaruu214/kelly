@@ -503,19 +503,29 @@ export class HUD {
       const a = 1 - ads;
       const len = Math.max(5, Math.min(11, s * 0.03));
       const hot = this._hitFlash > 0;
-      ctx.strokeStyle = hot ? 'rgba(255,255,255,0.95)' : `rgba(232,230,225,${0.86 * a})`;
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'butt';
-      ctx.beginPath();
-      ctx.moveTo(c, c - gap); ctx.lineTo(c, c - gap - len);
-      ctx.moveTo(c, c + gap); ctx.lineTo(c, c + gap + len);
-      ctx.moveTo(c - gap, c); ctx.lineTo(c - gap - len, c);
-      ctx.moveTo(c + gap, c); ctx.lineTo(c + gap + len, c);
-      ctx.stroke();
+      const arms = new Path2D();
+      arms.moveTo(c, c - gap); arms.lineTo(c, c - gap - len);
+      arms.moveTo(c, c + gap); arms.lineTo(c, c + gap + len);
+      arms.moveTo(c - gap, c); arms.lineTo(c - gap - len, c);
+      arms.moveTo(c + gap, c); arms.lineTo(c + gap + len, c);
 
-      ctx.fillStyle = hot ? 'rgba(255,122,26,1)' : `rgba(255,122,26,${0.9 * a})`;
+      ctx.lineCap = 'butt';
+      // Same path twice: 2px of white alone disappears against a blown-out sky,
+      // and a dark reticle would vanish indoors. The underlay covers both.
+      ctx.strokeStyle = `rgba(0,0,0,${0.55 * a})`;
+      ctx.lineWidth = 4;
+      ctx.stroke(arms);
+      ctx.strokeStyle = hot ? 'rgba(255,255,255,0.98)' : `rgba(240,238,233,${0.92 * a})`;
+      ctx.lineWidth = 2;
+      ctx.stroke(arms);
+
+      ctx.fillStyle = `rgba(0,0,0,${0.6 * a})`;
       ctx.beginPath();
-      ctx.arc(c, c, 1.6, 0, Math.PI * 2);
+      ctx.arc(c, c, 2.9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = hot ? 'rgba(255,122,26,1)' : `rgba(255,122,26,${0.95 * a})`;
+      ctx.beginPath();
+      ctx.arc(c, c, 1.7, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -560,7 +570,9 @@ export class HUD {
     ctx.arc(c, c, c - 1, 0, Math.PI * 2);
     ctx.clip();
 
-    ctx.fillStyle = 'rgba(6,8,9,0.72)';
+    // The base is the value floor for everything drawn over it, so it has to
+    // stay darker than the brightest ground the disc can sit on.
+    ctx.fillStyle = 'rgba(5,7,9,0.88)';
     ctx.fillRect(0, 0, s, s);
 
     const st = this._mapStatic;
@@ -570,7 +582,11 @@ export class HUD {
       ctx.rotate(yaw);
       ctx.scale(ppm / st.ppm, ppm / st.ppm);
       ctx.translate(-(p.x - st.minX) * st.ppm, -(p.z - st.minZ) * st.ppm);
+      // Faded once, as a whole image: the footprint is opaque in the cache so
+      // that overlapping walls cannot stack alpha and wash the disc to grey.
+      ctx.globalAlpha = 0.92;
       ctx.drawImage(st.canvas, 0, 0);
+      ctx.globalAlpha = 1;
       ctx.restore();
     }
 
@@ -578,6 +594,9 @@ export class HUD {
     ctx.save();
     ctx.translate(c, c);
     ctx.rotate(yaw);
+    // Blips are the one thing here that must be found without being looked for,
+    // so they take the top of the value range: glow, dark collar, hot core.
+    ctx.shadowColor = 'rgba(255,59,48,0.95)';
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
       if (!isAlive(e)) continue;
@@ -586,29 +605,61 @@ export class HUD {
       const dx = ep.x - p.x, dz = ep.z - p.z;
       const dist = Math.hypot(dx, dz);
       if (dist > MAP_CULL) continue;
-      const lim = c - 6;
+      const lim = c - 7;
       let bx = dx * ppm, bz = dz * ppm;
       const bl = Math.hypot(bx, bz);
       const edge = bl > lim;
       if (edge) { bx = bx / bl * lim; bz = bz / bl * lim; }
-      ctx.fillStyle = edge ? 'rgba(255,59,48,0.55)' : '#ff3b30';
-      ctx.beginPath();
-      ctx.arc(bx, bz, edge ? 2 : 3, 0, Math.PI * 2);
+
+      ctx.save();
+      ctx.translate(bx, bz);
+      if (edge) {
+        // Out-of-range contacts become chevrons pointing off-disc; a dot pinned
+        // to the rim reads as a contact standing there instead of as a bearing.
+        ctx.rotate(Math.atan2(bz, bx));
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = 'rgba(255,72,60,0.95)';
+        ctx.beginPath();
+        ctx.moveTo(4, 0); ctx.lineTo(-2.6, -3.6); ctx.lineTo(-2.6, 3.6);
+        ctx.closePath();
+      } else {
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#ff3b30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      }
       ctx.fill();
+      ctx.shadowBlur = 0;              // the collar separates, it must not glow
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+      if (!edge) {
+        ctx.fillStyle = 'rgba(255,235,230,0.95)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
     ctx.restore();
     ctx.restore();
 
     // Player arrow last and unrotated — it is the fixed reference the rotating
     // map turns around.
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 5;
     ctx.fillStyle = '#ff7a1a';
     ctx.beginPath();
-    ctx.moveTo(c, c - 6);
-    ctx.lineTo(c + 4.5, c + 5);
-    ctx.lineTo(c, c + 2.5);
-    ctx.lineTo(c - 4.5, c + 5);
+    ctx.moveTo(c, c - 7);
+    ctx.lineTo(c + 5.2, c + 5.6);
+    ctx.lineTo(c, c + 2.6);
+    ctx.lineTo(c - 5.2, c + 5.6);
     ctx.closePath();
     ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(8,5,2,0.9)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
   }
 
   /**
@@ -645,9 +696,13 @@ export class HUD {
     const cv = document.createElement('canvas');
     cv.width = cw; cv.height = ch;
     const g = cv.getContext('2d');
-    g.fillStyle = 'rgba(232,230,225,0.16)';
-    g.strokeStyle = 'rgba(232,230,225,0.42)';
-    g.lineWidth = Math.max(1, ppm * 0.14);
+    // Opaque so overlaps flatten instead of accumulating; _updateMap fades the
+    // finished image once. The outline is what makes the footprint a form
+    // rather than a smear, and lineWidth in metres keeps it ~1.2px on screen at
+    // any span, since the draw scales by mapPpm/ppm.
+    g.fillStyle = '#39424a';
+    g.strokeStyle = '#b3bdc4';
+    g.lineWidth = ppm * 0.34;
     for (const b of boxes) {
       const x = (b.minX - minX) * ppm, y = (b.minZ - minZ) * ppm;
       const w = (b.maxX - b.minX) * ppm, h = (b.maxZ - b.minZ) * ppm;
@@ -842,8 +897,11 @@ const MARKUP = `
 
 const CSS = `
 #hud{
-  --acc:#ff7a1a; --ink:#e8e6e1; --dim:#6d7479; --bad:#ff3b30;
+  --acc:#ff7a1a; --ink:#e8e6e1; --dim:#9aa3aa; --bad:#ff3b30;
   --bg:rgba(8,9,10,.92);
+  /* Every readout floats over live scene, which can be sky-bright one frame and
+     shadow-black the next; a tight shadow plus a soft one covers both. */
+  --tsh:0 1px 2px rgba(0,0,0,.92),0 0 12px rgba(0,0,0,.6);
   --pad-t:max(10px,env(safe-area-inset-top));
   --pad-r:max(12px,env(safe-area-inset-right));
   --pad-b:max(12px,env(safe-area-inset-bottom));
@@ -864,7 +922,9 @@ const CSS = `
 #hud:not([data-screen=game]) .hud-grain{opacity:.05;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
   background-size:140px 140px}
-#hud:not([data-screen=game]) .hud-scan{opacity:.5;
+/* Held down since the menu no longer blacks the level out — at .5 the lines
+   stopped reading as a CRT artefact and started reading as dirt on the frame. */
+#hud:not([data-screen=game]) .hud-scan{opacity:.3;
   background:repeating-linear-gradient(180deg,rgba(0,0,0,.34) 0 1px,transparent 1px 3px);
   animation:hudScan 8s linear infinite}
 @keyframes hudScan{from{background-position-y:0}to{background-position-y:60px}}
@@ -873,8 +933,8 @@ const CSS = `
 .hud-mapwrap{position:absolute;top:var(--pad-t);left:var(--pad-l);
   width:clamp(84px,15vmin,148px);aspect-ratio:1;opacity:0;transition:opacity .3s ease}
 .hud-mapwrap .ring{position:absolute;inset:0;border-radius:50%;
-  border:1px solid rgba(232,230,225,.22);
-  box-shadow:inset 0 0 22px rgba(0,0,0,.7)}
+  border:1px solid rgba(232,230,225,.38);
+  box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 0 18px rgba(0,0,0,.6)}
 .hud-mapwrap .ring::after{content:"";position:absolute;left:50%;top:-1px;width:1px;height:7px;
   background:var(--acc);transform:translateX(-.5px)}
 .hud-map{width:100%;height:100%;border-radius:50%;display:block}
@@ -882,8 +942,8 @@ const CSS = `
 /* ---------------------------- killfeed ---------------------------- */
 .hud-feed{position:absolute;top:var(--pad-t);right:var(--pad-r);
   display:flex;flex-direction:column;align-items:flex-end;gap:4px;opacity:0;transition:opacity .3s}
-.hud-feed .kf{font-size:clamp(9px,1.5vmin,12px);letter-spacing:.14em;
-  background:rgba(8,9,10,.55);padding:4px 8px;border-right:2px solid var(--acc);
+.hud-feed .kf{font-size:clamp(9px,1.5vmin,12px);letter-spacing:.14em;text-shadow:var(--tsh);
+  background:rgba(8,9,10,.72);padding:4px 8px;border-right:2px solid var(--acc);
   opacity:0;transform:translateX(14px);transition:opacity .18s ease,transform .18s ease;white-space:nowrap}
 .hud-feed .kf.in{opacity:1;transform:none}
 .hud-feed .kf.out{opacity:0}
@@ -894,15 +954,15 @@ const CSS = `
 
 /* ------------------------------ ammo ------------------------------ */
 .hud-ammo{position:absolute;right:var(--pad-r);bottom:var(--pad-b);text-align:right;
-  opacity:0;transition:opacity .3s ease}
+  opacity:0;transition:opacity .3s ease;text-shadow:var(--tsh)}
 .hud-ammo .nums{display:flex;align-items:baseline;justify-content:flex-end;gap:3px;line-height:.92}
 .hud-ammo .mag{font-size:clamp(34px,7vmin,64px);font-weight:800;letter-spacing:.02em;
-  text-shadow:0 2px 18px rgba(0,0,0,.8)}
-.hud-ammo .slash{font-size:clamp(13px,2.4vmin,22px);color:var(--dim)}
-.hud-ammo .res{font-size:clamp(13px,2.4vmin,22px);color:var(--dim)}
+  text-shadow:0 2px 18px rgba(0,0,0,.85),0 1px 2px rgba(0,0,0,.9)}
+.hud-ammo .slash{font-size:clamp(13px,2.4vmin,22px);color:rgba(232,230,225,.62)}
+.hud-ammo .res{font-size:clamp(13px,2.4vmin,22px);color:rgba(232,230,225,.78)}
 .hud-ammo .meta{display:flex;justify-content:flex-end;gap:10px;margin-top:5px;
-  font-size:clamp(9px,1.5vmin,12px);letter-spacing:.24em;color:var(--dim);
-  border-top:1px solid rgba(232,230,225,.18);padding-top:5px}
+  font-size:clamp(9px,1.5vmin,12px);letter-spacing:.24em;color:rgba(232,230,225,.72);
+  border-top:1px solid rgba(232,230,225,.34);padding-top:5px}
 .hud-ammo .wname{color:var(--ink)}
 .hud-ammo .wmode{color:var(--acc)}
 .hud-ammo.low .mag{color:var(--bad)}
@@ -910,16 +970,19 @@ const CSS = `
 @keyframes hudBlink{50%{opacity:.25}}
 
 /* ----------------------------- health ----------------------------- */
-.hud-health{position:absolute;left:var(--pad-l);bottom:var(--pad-b);opacity:0;transition:opacity .3s ease}
+.hud-health{position:absolute;left:var(--pad-l);bottom:var(--pad-b);opacity:0;transition:opacity .3s ease;
+  text-shadow:var(--tsh)}
 .hud-health .segs{display:flex;gap:3px}
-.hud-health .segs i{display:block;width:clamp(14px,2.6vmin,26px);height:4px;background:var(--ink);
-  transition:background .2s ease,opacity .2s ease}
-.hud-health .segs i.off{background:rgba(232,230,225,.16)}
+/* The collar is what keeps a lit segment from dissolving into bright sand and an
+   unlit one from disappearing entirely; empty slots read as dark, not as gone. */
+.hud-health .segs i{display:block;width:clamp(14px,2.6vmin,26px);height:5px;background:var(--ink);
+  box-shadow:0 0 0 1px rgba(0,0,0,.62);transition:background .2s ease,opacity .2s ease}
+.hud-health .segs i.off{background:rgba(6,8,10,.72)}
 .hud-health.hurt .segs i:not(.off){background:#ffb457}
 .hud-health.crit .segs i:not(.off){background:var(--bad)}
-.hud-health .line{display:flex;align-items:baseline;gap:8px;margin-top:6px;
-  font-size:clamp(9px,1.5vmin,12px);letter-spacing:.24em;color:var(--dim)}
-.hud-health .hpnum{font-size:clamp(15px,2.8vmin,24px);letter-spacing:.04em;color:var(--ink);font-weight:700}
+.hud-health .line{display:flex;align-items:baseline;gap:8px;margin-top:7px;
+  font-size:clamp(9px,1.5vmin,12px);letter-spacing:.24em;color:rgba(232,230,225,.72)}
+.hud-health .hpnum{font-size:clamp(16px,3vmin,26px);letter-spacing:.04em;color:var(--ink);font-weight:800}
 .hud-health.crit .hpnum{color:var(--bad)}
 
 /* --------------------------- crosshair --------------------------- */
@@ -958,7 +1021,7 @@ const CSS = `
 /* ---------------------------- perf ---------------------------- */
 .hud-perf{position:absolute;left:var(--pad-l);top:calc(var(--pad-t) + clamp(92px,16vmin,158px));
   display:none;gap:10px;font-size:clamp(8px,1.3vmin,11px);letter-spacing:.16em;color:var(--dim);
-  background:rgba(8,9,10,.55);padding:4px 8px}
+  background:rgba(8,9,10,.72);padding:4px 8px}
 #hud.show-perf .hud-perf{display:flex;flex-wrap:wrap;max-width:44vw}
 .hud-perf b{color:var(--acc);font-weight:700}
 
@@ -982,7 +1045,18 @@ const CSS = `
 .hud-screen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
   pointer-events:auto;padding:calc(var(--pad-t) + 8px) calc(var(--pad-r) + 8px)
     calc(var(--pad-b) + 8px) calc(var(--pad-l) + 8px);
-  background:radial-gradient(125% 95% at 50% 0%,rgba(20,23,26,.94) 0%,rgba(6,7,8,.96) 60%,rgba(0,0,0,.98) 100%)}
+  /* Two layers, and the order matters. The bottom one is a thin wash that only
+     knocks the level back; the top one is a pool under the type block, which is
+     where the legibility actually has to come from. A flat near-opaque plate
+     would buy the same contrast by throwing away the shot behind it. */
+  background:
+    radial-gradient(42% 38% at 50% 47%,rgba(2,3,4,.86) 0%,rgba(2,3,4,.6) 46%,rgba(2,3,4,0) 100%),
+    radial-gradient(130% 100% at 50% 0%,rgba(9,11,13,.24) 0%,rgba(4,5,7,.44) 58%,rgba(0,0,0,.6) 100%)}
+/* Death lands on live gameplay rather than a held camera, so it carries more
+   weight than the menu — but still not a blackout. */
+#hud[data-screen=death] .hud-screen{background:
+  radial-gradient(46% 42% at 50% 50%,rgba(2,3,4,.9) 0%,rgba(2,3,4,.7) 48%,rgba(2,3,4,0) 100%),
+  radial-gradient(130% 100% at 50% 0%,rgba(28,6,5,.42) 0%,rgba(4,5,7,.64) 60%,rgba(0,0,0,.78) 100%)}
 #hud[data-screen=menu] .hud-menu,
 #hud[data-screen=pause] .hud-pausescreen,
 #hud[data-screen=death] .hud-death{display:flex;animation:hudFade .35s ease both}
@@ -990,25 +1064,35 @@ const CSS = `
 #hud[data-screen=pause] .hud-screen{background:rgba(4,5,6,.72);backdrop-filter:blur(3px)}
 
 .hud-screen .stack{width:min(520px,86vw);display:flex;flex-direction:column;align-items:center;text-align:center}
-.hud-screen .eyebrow{font-size:clamp(8px,1.5vmin,11px);letter-spacing:.5em;text-indent:.5em;color:var(--acc)}
+.hud-screen .eyebrow{font-size:clamp(8px,1.5vmin,11px);letter-spacing:.5em;text-indent:.5em;color:var(--acc);
+  text-shadow:0 1px 4px rgba(0,0,0,.95)}
 .hud-screen h1{margin-top:10px;font-size:clamp(34px,10vmin,88px);font-weight:800;
-  letter-spacing:.28em;text-indent:.28em;text-shadow:0 0 40px rgba(255,122,26,.35)}
+  letter-spacing:.28em;text-indent:.28em;
+  text-shadow:0 0 40px rgba(255,122,26,.35),0 2px 16px rgba(0,0,0,.9),0 1px 2px rgba(0,0,0,.8)}
 .hud-screen h2{margin-top:10px;font-size:clamp(26px,7vmin,58px);font-weight:800;
-  letter-spacing:.24em;text-indent:.24em}
-.hud-screen h2.bad{color:var(--bad);text-shadow:0 0 34px rgba(255,59,48,.35)}
+  letter-spacing:.24em;text-indent:.24em;text-shadow:0 2px 16px rgba(0,0,0,.9)}
+.hud-screen h2.bad{color:var(--bad);text-shadow:0 0 34px rgba(255,59,48,.35),0 2px 14px rgba(0,0,0,.9)}
 .hud-screen .rule{width:100%;height:1px;margin:18px 0 22px;
-  background:linear-gradient(90deg,transparent,rgba(232,230,225,.35),transparent)}
-.hud-screen .foot{margin-top:26px;font-size:clamp(8px,1.3vmin,10px);letter-spacing:.34em;color:var(--dim)}
+  background:linear-gradient(90deg,transparent,rgba(232,230,225,.45),transparent)}
+.hud-screen .foot{margin-top:26px;font-size:clamp(8px,1.3vmin,10px);letter-spacing:.34em;
+  color:rgba(232,230,225,.6);text-shadow:0 1px 4px rgba(0,0,0,.95)}
 
 .hud-screen .btns{display:flex;flex-direction:column;gap:10px;width:min(340px,78vw)}
 #hud .btn{position:relative;display:flex;align-items:center;min-height:48px;width:100%;
-  padding:0 16px 0 22px;background:rgba(232,230,225,.05);border:1px solid rgba(232,230,225,.16);
+  padding:0 16px 0 22px;border:1px solid rgba(232,230,225,.3);
+  /* Dark-based rather than a 5% white tint: the buttons now sit over a visible
+     level, and a near-transparent fill left the labels on top of whatever moved
+     behind them. */
+  background:rgba(7,9,11,.66);
   color:var(--ink);font:inherit;font-size:clamp(12px,2vmin,15px);font-weight:700;
-  letter-spacing:.3em;text-align:left;transition:background .16s ease,border-color .16s ease}
+  letter-spacing:.3em;text-align:left;text-shadow:0 1px 3px rgba(0,0,0,.9);
+  transition:background .16s ease,border-color .16s ease}
 #hud .btn em{position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background .16s ease}
-#hud .btn.primary{border-color:rgba(255,122,26,.5);background:rgba(255,122,26,.1)}
+#hud .btn.primary{border-color:rgba(255,122,26,.62);
+  background:linear-gradient(90deg,rgba(255,122,26,.28),rgba(255,122,26,.06)),rgba(7,9,11,.66)}
 #hud .btn.primary em{background:var(--acc)}
-#hud .btn:active{background:rgba(255,122,26,.24);border-color:var(--acc)}
+#hud .btn:active{background:linear-gradient(90deg,rgba(255,122,26,.42),rgba(255,122,26,.16)),rgba(7,9,11,.7);
+  border-color:var(--acc)}
 #hud .btn:active em{background:var(--acc)}
 #hud .btn:focus-visible{outline:1px solid var(--acc);outline-offset:2px}
 

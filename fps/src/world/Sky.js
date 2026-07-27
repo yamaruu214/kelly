@@ -14,10 +14,11 @@ import * as THREE from 'three';
 
 const D2R = Math.PI / 180;
 
-/* Golden hour. 15° is low enough for long raking shadows and a warm key, but
-   still above the elevation where Rayleigh extinction eats the sun's energy
-   and the whole level goes flat and orange. */
-const SUN_ELEVATION = 15.0;
+/* Golden hour. What reaches flat ground is the key times sin(elevation), so 15°
+   delivered 0.26 of it and left sunlit sand a stop and a half under while the
+   sky above it clipped. 26° gives 0.44, still rakes hard (a caster throws two of
+   its own heights) and is still low enough for a warm, reddened key. */
+const SUN_ELEVATION = 26.0;
 const SUN_AZIMUTH = 118.0;
 
 /* ~0.2°/min. A ten-minute session loses two degrees, which nobody consciously
@@ -27,6 +28,16 @@ const SUN_DRIFT_PER_SEC = -0.0034;
 /* Rebuilding the IBL is a PMREM pass; at this threshold it happens roughly
    once every seven minutes instead of every frame. */
 const ENV_REBUILD_DEG = 1.5;
+
+/* Cascades folded into one map, indexed by the tier's cascade allowance. A
+   second shadow-casting light would re-draw every caster and add a second PCF
+   fetch to every lit fragment, which MEDIUM cannot pay for, so the allowance is
+   spent as area on a single ortho instead. Each entry is paired with its tier's
+   shadowMapSize to hold the texel footprint near 7cm everywhere (78/1024,
+   152/2048, 196/3072), which is what lets the bias and the texel snapping below
+   stay valid as the span grows. HIGH and up now reach across the whole 140m map;
+   at 76m the far half of every wide shot had no contact shadows at all. */
+const SHADOW_SPAN_BY_CASCADES = { 1: 78, 2: 112, 3: 152, 4: 196 };
 
 /* -------------------------------------------------------------- shader src */
 
@@ -298,10 +309,48 @@ void main(){
    nest the mix and wash the fog out. */
 let fogChunkPatched = false;
 
-function patchAerialFog(farColor, farDistance) {
+function patchAerialFog(warmColor, coolColor, sunDir, farDistance) {
   if (fogChunkPatched) return;
   fogChunkPatched = true;
   const c = v => v.toFixed(5);
+
+  /* The far tint has to know which way the fragment is being viewed from, and
+     nothing in the stock fragment prefix locates the fragment. Carrying the ray
+     down as a varying costs one interpolator; reconstructing world position from
+     depth would cost a matrix per fogged fragment on every tier. */
+  THREE.ShaderChunk.fog_pars_vertex = /* glsl */`
+#ifdef USE_FOG
+  varying float vFogDepth;
+  varying vec3 vFogRay;
+#endif
+`;
+  THREE.ShaderChunk.fog_vertex = /* glsl */`
+#ifdef USE_FOG
+  vFogDepth = - mvPosition.z;
+  // The camera sits at the origin in view space, so mvPosition is already the
+  // camera-to-fragment direction. Right-multiplying by the view rotation applies
+  // its transpose, which for a camera basis is its inverse — no inverse() call,
+  // which also keeps this compiling under GLSL ES 1.00.
+  vFogRay = mvPosition.xyz * mat3( viewMatrix );
+#endif
+`;
+  THREE.ShaderChunk.fog_pars_fragment = /* glsl */`
+#ifdef USE_FOG
+  uniform vec3 fogColor;
+  varying float vFogDepth;
+  varying vec3 vFogRay;
+  #ifdef FOG_EXP2
+    uniform float fogDensity;
+  #else
+    uniform float fogNear;
+    uniform float fogFar;
+  #endif
+#endif
+`;
+  /* The sun direction is baked rather than passed: the fog uniform block is
+     merged into every built-in material at three's module init, so a new uniform
+     added afterwards would be declared but never uploaded. Elevation drifts ~2°
+     across a session, which moves this dot product by 0.03. */
   THREE.ShaderChunk.fog_fragment = /* glsl */`
 #ifdef USE_FOG
   #ifdef FOG_EXP2
@@ -309,11 +358,15 @@ function patchAerialFog(farColor, farDistance) {
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
   #endif
-  // Aerial perspective: Rayleigh keeps accumulating along the path, so haze
-  // shifts from the warm near-field horizon tone toward cool sky blue with
-  // distance. Stock FogExp2 is one flat colour and reads as a grey card.
-  vec3 fogTint = mix( fogColor, vec3( ${c(farColor.r)}, ${c(farColor.g)}, ${c(farColor.b)} ),
-                      smoothstep( 0.0, ${c(farDistance)}, vFogDepth ) );
+  // Aerial perspective is the sky seen through the air the geometry stands in,
+  // so it has to swing warm looking into the sun and cool looking away from it.
+  // One view-independent far colour is what welds a hue seam along the horizon:
+  // blue-hazed sand meeting a warm sky along a hard line.
+  float fogSun = smoothstep( -0.35, 0.85, dot( normalize( vFogRay ),
+                             vec3( ${c(sunDir.x)}, ${c(sunDir.y)}, ${c(sunDir.z)} ) ) );
+  vec3 fogHaze = mix( vec3( ${c(coolColor.r)}, ${c(coolColor.g)}, ${c(coolColor.b)} ),
+                      vec3( ${c(warmColor.r)}, ${c(warmColor.g)}, ${c(warmColor.b)} ), fogSun );
+  vec3 fogTint = mix( fogColor, fogHaze, smoothstep( 0.0, ${c(farDistance)}, vFogDepth ) );
   gl_FragColor.rgb = mix( gl_FragColor.rgb, fogTint, fogFactor );
 #endif
 `;

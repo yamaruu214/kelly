@@ -242,12 +242,15 @@ export const MATERIALS = {
       const agg   = fbm(u * 90, v * 90, 3);
       const cell  = voronoi(u, v, 14);
       const pit   = smoothstep(0.14, 0.0, cell.f1) * (cell.id > 0.72 ? 1 : 0);
-      const crack = smoothstep(0.045, 0.0, ridged(u * 6, v * 6, 4) - 0.62);
+      // Cracks follow a narrow band *around* a ridge level, not everything above
+      // it — without the abs() the mask floods half the surface with blotches.
+      const crack = smoothstep(0.03, 0.0, Math.abs(ridged(u * 6, v * 6, 4) - 0.82));
 
       let h = 0.5 + grain * 0.22 + agg * 0.10 - pit * 0.42 - crack * 0.30;
       s.height[i] = h;
 
-      const stain = smoothstep(0.55, 1.0, fbm(u * 3, v * 11, 4) * 0.5 + 0.5);
+      // Stretched along v: rain runs down the panel, so the streak must too.
+      const stain = smoothstep(0.55, 1.0, fbm(u * 11, v * 3, 4) * 0.5 + 0.5);
       const base = MIX([0.44, 0.435, 0.425], [0.30, 0.298, 0.292], stain * 0.75);
       const c = MIX(base, [0.22, 0.22, 0.225], pit * 0.6 + crack * 0.5);
       const spec = agg * 0.06;
@@ -276,15 +279,21 @@ export const MATERIALS = {
       c = MIX(c, [0.55, 0.56, 0.58], scratch * 0.5);
       s.rgb[i * 3] = c[0]; s.rgb[i * 3 + 1] = c[1]; s.rgb[i * 3 + 2] = c[2];
 
-      s.rough[i] = clamp01(0.34 + chip * 0.50 + dent * 0.10 - scratch * 0.18);
-      // Rust is a dielectric; only the intact paint and bare scratches read metallic.
-      s.metal[i] = clamp01((1 - chip) * 0.85 + scratch * 0.15);
+      s.rough[i] = clamp01(0.45 + chip * 0.50 + dent * 0.10 - scratch * 0.18);
+      // Paint and rust are both dielectrics — only bare steel is metallic, so a
+      // metallic base would strip the diffuse response and leave these surfaces
+      // reflecting nothing but the blue upper hemisphere of the environment.
+      s.metal[i] = clamp01(scratch * 0.7 + chip * 0.12);
     }, { normalStrength: 1.8, aoRadius: 2, aoStrength: 0.9 });
   },
 
   /* Running-bond brick with recessed mortar. */
   brick(size) {
-    const ROWS = 12, BRICK_H = 1 / ROWS, BRICK_W = 1 / 6, MORTAR = 0.055;
+    // Over the 2 m brick tile: 8.3 cm courses and 22 cm faces. ROWS has to stay
+    // even, or the running-bond offset butts two identically aligned courses
+    // together where the tile wraps in v.
+    const ROWS = 24, COLS = 9;
+    const BRICK_H = 1 / ROWS, BRICK_W = 1 / COLS, MORTAR = 0.0045;
     return build(size, (u, v, i, s) => {
       const row = Math.floor(v / BRICK_H);
       const offset = (row & 1) ? BRICK_W * 0.5 : 0;
@@ -292,7 +301,10 @@ export const MATERIALS = {
       const bv = (v % BRICK_H) / BRICK_H;
       const mortarMask = 1 - smoothstep(0, MORTAR / BRICK_W, Math.min(bu, 1 - bu)) *
                              smoothstep(0, MORTAR / BRICK_H * 0.6, Math.min(bv, 1 - bv));
-      const id = ((row * 31 + Math.floor((u + offset) / BRICK_W) * 17) % 97) / 97;
+      // Column index wraps at COLS so the half-brick courses, whose offset
+      // straddles u = 0, keep one shade across the tile seam.
+      const col = Math.floor((u + offset) / BRICK_W) % COLS;
+      const id = ((row * 31 + col * 17) % 97) / 97;
       const grit = fbm(u * 110, v * 110, 3) * 0.5 + 0.5;
       const wear = fbm(u * 20, v * 20, 4) * 0.5 + 0.5;
 
@@ -311,14 +323,23 @@ export const MATERIALS = {
   /* Wind-rippled sand with a coarse shell/pebble layer. */
   sand(size) {
     return build(size, (u, v, i, s) => {
-      const dune   = fbm(u * 4, v * 4, 4);
-      const ripple = Math.sin((u * 46 + fbm(u * 5, v * 5, 3) * 5) * Math.PI * 2) * 0.5 + 0.5;
+      // The dune band is 1.5 m across inside a 6 m tile, so at any real viewing
+      // distance it is the feature the eye recognises as the repeat — keep it as
+      // a faint tonal drift only. Matching `per` to the frequency also stops the
+      // band from stepping at the tile edge.
+      const dune   = fbm(u * 4, v * 4, 4, 2, 0.5, 4);
+      // Crest heading wanders instead of running dead straight along world Z.
+      // The turn is applied as a phase offset rather than a rotated uv because
+      // only whole cycle counts in u and v survive the wrap; 45/10 keeps the
+      // wave-vector length (and so the 13 cm pitch) within 0.2% of the old 46.
+      const bend   = fbm(u * 2, v * 2, 3, 2, 0.5, 2) * 8;
+      const ripple = Math.sin((u * 45 + v * 10 + bend) * Math.PI * 2) * 0.5 + 0.5;
       const grit   = fbm(u * 170, v * 170, 2) * 0.5 + 0.5;
       const peb    = smoothstep(0.80, 0.92, fbm(u * 60, v * 60, 3) * 0.5 + 0.5);
 
-      s.height[i] = 0.5 + dune * 0.18 + ripple * 0.055 + grit * 0.03 + peb * 0.10;
+      s.height[i] = 0.5 + dune * 0.04 + ripple * 0.055 + grit * 0.03 + peb * 0.10;
 
-      const c = MIX(MIX([0.52, 0.44, 0.32], [0.63, 0.55, 0.41], ripple * 0.55 + dune * 0.45),
+      const c = MIX(MIX([0.52, 0.44, 0.32], [0.63, 0.55, 0.41], ripple * 0.62 + dune * 0.20),
                     [0.40, 0.37, 0.32], peb);
       const sparkle = grit * 0.05;
       s.rgb[i * 3] = c[0] + sparkle; s.rgb[i * 3 + 1] = c[1] + sparkle; s.rgb[i * 3 + 2] = c[2] + sparkle;

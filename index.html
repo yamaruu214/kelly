@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIA Acoustique — Bureau d'études acoustique, vibrations & air</title>
+<meta name="description" content="CIA Acoustique, bureau d'études indépendant en acoustique, vibrations et qualité de l'air. Mesures, ingénierie, études d'impact. Marseille, Lyon, Paris, Toulon.">
+<meta name="theme-color" content="#08090a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN SYSTEM
+   ============================================================ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#08090a;
+  --bg-2:#101113;
+  --bg-3:#17191c;
+  --ink:#f4f2ed;
+  --ink-2:#a8a49c;
+  --ink-3:#6c6a66;
+  --accent:#c9f24d;
+  --accent-dim:rgba(201,242,77,.14);
+  --line:rgba(244,242,237,.10);
+  --line-2:rgba(244,242,237,.18);
+
+  --serif:'Instrument Serif',Georgia,'Times New Roman',serif;
+  --sans:'Inter Tight',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+
+  --gutter:clamp(20px,5vw,64px);
+  --maxw:1320px;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-weight:300;
+  font-size:clamp(15px,1.05vw,17px);
+  line-height:1.65;
+  letter-spacing:-.005em;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+img,svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+/* --- grain ------------------------------------------------- */
+.grain{
+  position:fixed;inset:-50%;z-index:9999;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  will-change:transform;
+}
+
+/* --- layout ------------------------------------------------ */
+.wrap{width:100%;max-width:var(--maxw);margin-inline:auto;padding-inline:var(--gutter)}
+section{position:relative;padding-block:clamp(88px,12vw,180px)}
+.rule{height:1px;background:var(--line);border:0}
+
+/* --- typography -------------------------------------------- */
+.eyebrow{
+  font-family:var(--mono);font-size:clamp(9.5px,.72vw,11px);font-weight:400;
+  text-transform:uppercase;letter-spacing:.24em;color:var(--ink-3);
+  display:flex;align-items:center;gap:12px;
+}
+.eyebrow::before{
+  content:'';width:22px;height:1px;background:var(--accent);flex:none;opacity:.8;
+}
+h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.025em;line-height:.98}
+h1{font-size:clamp(44px,9.2vw,132px)}
+h2{font-size:clamp(34px,5.6vw,82px);line-height:1.02}
+h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
+.serif-it{font-style:italic;color:var(--accent)}
+.lede{
+  font-size:clamp(17px,1.6vw,23px);line-height:1.5;color:var(--ink-2);
+  font-weight:300;letter-spacing:-.012em;max-width:62ch;
+}
+.muted{color:var(--ink-2)}
+.small{font-size:clamp(13px,.95vw,14.5px);line-height:1.6;color:var(--ink-2)}
+
+/* --- buttons ----------------------------------------------- */
+.btn{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:11px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.16em;
+  padding:15px 26px;border-radius:999px;border:1px solid var(--line-2);
+  color:var(--ink);background:transparent;cursor:pointer;
+  transition:background .4s var(--ease),color .4s var(--ease),border-color .4s var(--ease),transform .4s var(--ease);
+}
+.btn:hover{background:var(--ink);color:var(--bg);border-color:var(--ink);transform:translateY(-2px)}
+.btn--accent{background:var(--accent);color:#0b0d05;border-color:var(--accent)}
+.btn--accent:hover{background:#dcff6b;border-color:#dcff6b;color:#0b0d05}
+.btn svg{width:13px;height:13px;transition:transform .4s var(--ease)}
+.btn:hover svg{transform:translateX(3px)}
+
+/* --- motion ------------------------------------------------ */
+.reveal{opacity:0;transform:translateY(26px);
+  transition:opacity .9s var(--ease),transform .9s var(--ease);
+  transition-delay:var(--d,0s);will-change:opacity,transform}
+.reveal.in{opacity:1;transform:none}
+
+.mask{display:block;overflow:hidden}
+.mask>span{display:block;transform:translateY(105%);
+  transition:transform 1.05s var(--ease);transition-delay:var(--d,0s)}
+.mask.in>span{transform:none}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal,.mask>span{opacity:1!important;transform:none!important;transition:none!important}
+  .grain{display:none}
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.hdr{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  transition:background .5s var(--ease),border-color .5s var(--ease),backdrop-filter .5s var(--ease);
+  border-bottom:1px solid transparent;
+}
+.hdr.stuck{
+  background:rgba(8,9,10,.78);backdrop-filter:blur(14px) saturate(150%);
+  -webkit-backdrop-filter:blur(14px) saturate(150%);border-bottom-color:var(--line);
+}
+.hdr__in{
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  height:var(--hh,84px);transition:height .5s var(--ease);
+}
+.hdr.stuck .hdr__in{--hh:66px}
+.logo{display:flex;align-items:baseline;gap:9px;font-family:var(--serif);font-size:26px;letter-spacing:-.02em;line-height:1}
+.logo b{font-weight:400}
+.logo .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);align-self:center;flex:none}
+.logo small{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.2em;color:var(--ink-3)}
+.nav{display:flex;align-items:center;gap:clamp(18px,2.2vw,34px)}
+.nav a{
+  font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.15em;
+  color:var(--ink-2);position:relative;padding-block:6px;transition:color .35s var(--ease);
+}
+.nav a::after{
+  content:'';position:absolute;left:0;right:100%;bottom:0;height:1px;background:var(--accent);
+  transition:right .45s var(--ease);
+}
+.nav a:hover{color:var(--ink)}
+.nav a:hover::after{right:0}
+.hdr .btn{padding:11px 20px}
+.burger{
+  display:none;width:44px;height:44px;border:1px solid var(--line-2);border-radius:50%;
+  background:transparent;cursor:pointer;position:relative;
+}
+.burger span{
+  position:absolute;left:13px;right:13px;height:1px;background:var(--ink);
+  transition:transform .4s var(--ease),opacity .3s var(--ease);
+}
+.burger span:nth-child(1){top:18px}
+.burger span:nth-child(2){bottom:18px}
+.burger[aria-expanded="true"] span:nth-child(1){transform:translateY(4px) rotate(45deg)}
+.burger[aria-expanded="true"] span:nth-child(2){transform:translateY(-4px) rotate(-45deg)}
+
+@media (max-width:900px){
+  .nav,.hdr .btn{display:none}
+  .burger{display:block}
+  .nav--open{
+    display:flex;position:fixed;inset:0;background:var(--bg);
+    flex-direction:column;align-items:flex-start;justify-content:center;
+    gap:6px;padding:var(--gutter);z-index:99;
+  }
+  .nav--open a{font-family:var(--serif);font-size:clamp(30px,8vw,52px);text-transform:none;letter-spacing:-.02em;color:var(--ink)}
+  .nav--open a::after{display:none}
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:flex-end;
+  padding-top:calc(84px + clamp(40px,10vh,110px));padding-bottom:clamp(32px,5vh,56px);overflow:hidden}
+.hero__bg{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(900px 620px at 78% 8%,rgba(201,242,77,.10),transparent 62%),
+    radial-gradient(760px 560px at 8% 92%,rgba(90,150,255,.06),transparent 60%);}
+.hero .wrap{position:relative;z-index:1;width:100%}
+.hero h1{margin-block:clamp(22px,3.4vw,40px) clamp(26px,3.6vw,44px);max-width:16ch}
+.hero__foot{
+  display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+  gap:clamp(26px,4vw,60px);margin-top:clamp(46px,7vw,90px);
+  padding-top:26px;border-top:1px solid var(--line);
+}
+.hero__cta{display:flex;flex-wrap:wrap;gap:12px}
+.hero__meta{display:flex;flex-wrap:wrap;gap:clamp(22px,3vw,46px)}
+.hero__meta div{display:flex;flex-direction:column;gap:3px}
+.hero__meta .k{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.2em;color:var(--ink-3)}
+.hero__meta .v{font-family:var(--serif);font-size:clamp(19px,1.7vw,25px);line-height:1.1}
+
+/* wave */
+.wave{position:absolute;left:0;right:0;bottom:0;height:34vh;min-height:200px;z-index:0;
+  opacity:.5;pointer-events:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.wave path{fill:none;stroke:var(--accent);stroke-width:1.1;vector-effect:non-scaling-stroke}
+.wave path:nth-child(2){stroke:var(--ink);opacity:.16}
+.wave path:nth-child(3){stroke:var(--ink);opacity:.09}
+
+/* scroll hint */
+.hint{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:9.5px;
+  text-transform:uppercase;letter-spacing:.22em;color:var(--ink-3)}
+.hint i{display:block;width:1px;height:28px;background:linear-gradient(var(--accent),transparent);
+  animation:drop 2.2s var(--ease) infinite}
+@keyframes drop{0%{transform:scaleY(0);transform-origin:top}
+  45%{transform:scaleY(1);transform-origin:top}
+  55%{transform:scaleY(1);transform-origin:bottom}
+  100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.ft{padding-block:clamp(60px,8vw,100px) 34px;border-top:1px solid var(--line);position:relative}
+.ft__top{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:clamp(30px,4vw,60px);align-items:start}
+.ft__brand h3{margin-block:16px 14px;max-width:14ch}
+.ft__col h4{font-family:var(--mono);font-size:10px;font-weight:400;text-transform:uppercase;
+  letter-spacing:.2em;color:var(--ink-3);margin-bottom:18px}
+.ft__col ul{list-style:none;display:flex;flex-direction:column;gap:11px}
+.ft__col a{color:var(--ink-2);font-size:14.5px;transition:color .3s var(--ease)}
+.ft__col a:hover{color:var(--accent)}
+.ft__bot{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center;
+  margin-top:clamp(44px,6vw,76px);padding-top:22px;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-3)}
+.ft__bot a:hover{color:var(--ink)}
+@media (max-width:820px){.ft__top{grid-template-columns:1fr;gap:40px}}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<a class="btn skip" href="#main" style="position:absolute;left:-9999px;top:0;z-index:200"
+   onfocus="this.style.left='16px';this.style.top='16px'" onblur="this.style.left='-9999px'">Aller au contenu</a>
+
+<header class="hdr" id="hdr">
+  <div class="wrap hdr__in">
+    <a class="logo" href="#top" aria-label="CIA Acoustique, accueil">
+      <b>CIA</b><span class="dot" aria-hidden="true"></span><small>Acoustique</small>
+    </a>
+    <nav class="nav" id="nav" aria-label="Navigation principale">
+      <a href="#expertise">Expertise</a>
+      <a href="#mesures">Mesures</a>
+      <a href="#methode">Méthode</a>
+      <a href="#air">Air &amp; Santé</a>
+      <a href="#references">Références</a>
+    </nav>
+    <a class="btn btn--accent" href="#contact">Nous consulter</a>
+    <button class="burger" id="burger" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============================ HERO ============================ -->
+<section class="hero" id="top">
+  <div class="hero__bg" aria-hidden="true"></div>
+  <svg class="wave" viewBox="0 0 1200 300" preserveAspectRatio="none" aria-hidden="true">
+    <path id="w1" d=""></path><path id="w2" d=""></path><path id="w3" d=""></path>
+  </svg>
+  <div class="wrap">
+    <p class="eyebrow reveal">Bureau d'études acoustique &amp; vibrations</p>
+    <h1>
+      <span class="mask" style="--d:.05s"><span>Le bruit se</span></span>
+      <span class="mask" style="--d:.14s"><span>mesure. Le confort</span></span>
+      <span class="mask" style="--d:.23s"><span><i class="serif-it">se conçoit.</i></span></span>
+    </h1>
+    <p class="lede reveal" style="--d:.34s">
+      Depuis nos agences de Marseille, Lyon, Paris et Toulon, nous accompagnons
+      maîtres d'ouvrage, industriels et collectivités sur l'ensemble du cycle
+      acoustique&nbsp;: diagnostic, modélisation, conception, mesures et réception.
+    </p>
+    <div class="hero__foot reveal" style="--d:.44s">
+      <div class="hero__cta">
+        <a class="btn btn--accent" href="#contact">Démarrer un projet
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
+        </a>
+        <a class="btn" href="#expertise">Nos expertises</a>
+      </div>
+      <div class="hero__meta">
+        <div><span class="k">Agences</span><span class="v">4</span></div>
+        <div><span class="k">Domaines</span><span class="v">Acoustique · Vibrations · Air</span></div>
+      </div>
+    </div>
+    <div class="hint reveal" style="--d:.6s;margin-top:34px"><i aria-hidden="true"></i>Faites défiler</div>
+  </div>
+</section>
+
+<!-- SECTIONS INJECTED HERE -->
+
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="ft">
+  <div class="wrap">
+    <div class="ft__top">
+      <div class="ft__brand">
+        <a class="logo" href="#top"><b>CIA</b><span class="dot" aria-hidden="true"></span><small>Acoustique</small></a>
+        <h3>Un projet, une contrainte, une échéance&nbsp;?</h3>
+        <a class="btn btn--accent" href="#contact">Nous écrire
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
+        </a>
+      </div>
+      <div class="ft__col">
+        <h4>Expertises</h4>
+        <ul>
+          <li><a href="#expertise">Ingénierie acoustique</a></li>
+          <li><a href="#mesures">Mesures &amp; essais</a></li>
+          <li><a href="#air">Air &amp; santé</a></li>
+          <li><a href="#references">Références</a></li>
+        </ul>
+      </div>
+      <div class="ft__col">
+        <h4>Agences</h4>
+        <ul>
+          <li><a href="#contact">Marseille / Aix-en-Provence</a></li>
+          <li><a href="#contact">Lyon</a></li>
+          <li><a href="#contact">Paris</a></li>
+          <li><a href="#contact">Toulon</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ft__bot">
+      <span>© <span id="yr">2026</span> CIA Acoustique</span>
+      <span>Mentions légales · Politique de confidentialité</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- year ---- */
+  var yr = document.getElementById('yr'); if (yr) yr.textContent = new Date().getFullYear();
+
+  /* ---- header condense ---- */
+  var hdr = document.getElementById('hdr'), ticking = false;
+  function onScroll(){
+    if (ticking) return; ticking = true;
+    requestAnimationFrame(function(){
+      hdr.classList.toggle('stuck', window.scrollY > 40);
+      ticking = false;
+    });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
+
+  /* ---- mobile nav ---- */
+  var burger = document.getElementById('burger'), nav = document.getElementById('nav');
+  function closeNav(){ nav.classList.remove('nav--open'); burger.setAttribute('aria-expanded','false');
+    burger.setAttribute('aria-label','Ouvrir le menu'); document.body.style.overflow=''; }
+  burger.addEventListener('click', function(){
+    var open = nav.classList.toggle('nav--open');
+    burger.setAttribute('aria-expanded', String(open));
+    burger.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+    document.body.style.overflow = open ? 'hidden' : '';
+  });
+  nav.addEventListener('click', function(e){ if (e.target.tagName === 'A') closeNav(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeNav(); });
+
+  /* ---- reveal on scroll ---- */
+  var targets = document.querySelectorAll('.reveal, .mask');
+  if (reduce || !('IntersectionObserver' in window)){
+    targets.forEach(function(t){ t.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, {rootMargin:'0px 0px -10% 0px', threshold:.12});
+    targets.forEach(function(t){ io.observe(t); });
+  }
+
+  /* ---- animated hero waveform ---- */
+  var paths = [document.getElementById('w1'),document.getElementById('w2'),document.getElementById('w3')];
+  if (paths[0]){
+    var W = 1200, H = 300, cfg = [
+      {amp:46, freq:2.1, speed:.00042, y:150},
+      {amp:70, freq:1.3, speed:-.00029, y:150},
+      {amp:30, freq:3.4, speed:.00061, y:150}
+    ];
+    function draw(t){
+      for (var i=0;i<3;i++){
+        var c = cfg[i], d = '', n = 90;
+        for (var s=0;s<=n;s++){
+          var x = s/n*W, ph = t*c.speed + i*1.7;
+          var env = Math.sin(s/n*Math.PI);
+          var y = c.y + Math.sin(s/n*Math.PI*2*c.freq + ph)*c.amp*env
+                      + Math.sin(s/n*Math.PI*2*c.freq*2.3 + ph*1.6)*c.amp*.28*env;
+          d += (s ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+        }
+        paths[i].setAttribute('d', d);
+      }
+    }
+    draw(0);
+    if (!reduce){
+      var raf, running = true;
+      (function loop(t){ if (running) draw(t); raf = requestAnimationFrame(loop); })(0);
+      document.addEventListener('visibilitychange', function(){ running = !document.hidden; });
+      /* pause when hero is off-screen */
+      if ('IntersectionObserver' in window){
+        new IntersectionObserver(function(e){ running = e[0].isIntersecting; })
+          .observe(document.getElementById('top'));
+      }
+    }
+  }
+})();
+</script>
+</body>
+</html>

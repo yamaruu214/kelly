@@ -34,6 +34,71 @@ import { TouchControls } from './ui/Touch.js';
 const FIXED_DT = 1 / 120;          // simulation step; render is decoupled
 const MAX_SUBSTEPS = 6;
 
+/** Error carrying a message meant for the player rather than a stack trace. */
+export class StartupError extends Error {
+  constructor(userMessage, detail) {
+    super(userMessage);
+    this.name = 'StartupError';
+    this.userMessage = userMessage;
+    this.detail = detail;
+  }
+}
+
+/**
+ * Creates the WebGL renderer, retrying with progressively cheaper attributes.
+ *
+ * Context creation is not guaranteed even on capable hardware: browsers cap the
+ * number of live WebGL contexts and drop them under GPU memory pressure, so a
+ * phone with a lot of tabs open will refuse the first request and often accept
+ * a leaner one. Each attempt needs its own canvas — once getContext has failed
+ * on a canvas it keeps returning null for that element.
+ */
+function createRenderer() {
+  const base = {
+    antialias: false,            // we resolve with FXAA in the post chain
+    alpha: false,
+    stencil: false,
+    depth: true,
+    // iOS Safari drops the context aggressively under memory pressure;
+    // preserveDrawingBuffer off keeps our footprint as small as possible.
+    preserveDrawingBuffer: false,
+    failIfMajorPerformanceCaveat: false,
+  };
+  const attempts = [
+    { ...base, powerPreference: 'high-performance' },
+    { ...base, powerPreference: 'default' },
+    { ...base, powerPreference: 'low-power' },
+  ];
+
+  let lastError;
+  for (const attrs of attempts) {
+    const canvas = document.createElement('canvas');
+    try {
+      return { renderer: new THREE.WebGLRenderer({ canvas, ...attrs }), canvas };
+    } catch (e) {
+      lastError = e;
+      canvas.remove();
+    }
+  }
+
+  // Distinguish "this browser cannot do WebGL2 at all" from "it could, but had
+  // no room right now" — the second is the player's to fix, the first is not.
+  let hasWebGL2 = false;
+  try {
+    hasWebGL2 = !!document.createElement('canvas').getContext('webgl2');
+  } catch { /* treated as unsupported */ }
+
+  throw new StartupError(
+    hasWebGL2
+      ? 'Your browser ran out of graphics memory.\n\n' +
+        'Close your other tabs and reload — this needs a 3D context and the ' +
+        'browser had none left to give.'
+      : 'This browser does not support WebGL2, which this game requires.\n\n' +
+        'Try Chrome, Safari or Firefox, and check that hardware acceleration ' +
+        'is enabled in your browser settings.',
+    lastError);
+}
+
 export class Game {
   constructor() {
     this.state = 'loading';        // loading | menu | playing | paused | dead
@@ -46,22 +111,9 @@ export class Game {
     const app = document.getElementById('app');
 
     /* ---------------------------------------------------------- renderer */
-    const canvas = document.createElement('canvas');
+    const { renderer, canvas } = createRenderer();
     app.appendChild(canvas);
     this.canvas = canvas;
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: false,            // we resolve with FXAA in the post chain
-      alpha: false,
-      stencil: false,
-      depth: true,
-      powerPreference: 'high-performance',
-      // iOS Safari drops the context aggressively under memory pressure;
-      // preserveDrawingBuffer off keeps our footprint as small as possible.
-      preserveDrawingBuffer: false,
-      failIfMajorPerformanceCaveat: false,
-    });
     this.renderer = renderer;
 
     const gl = renderer.getContext();

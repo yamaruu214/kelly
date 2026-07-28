@@ -41,10 +41,16 @@
   #rotate p{font-size:12px;letter-spacing:.26em;color:#9aa1a6;line-height:2}
   body.portrait-lock #rotate{display:flex}
 
-  #err{position:absolute;inset:0;z-index:990;background:#0a0b0c;display:none;padding:28px;
-    flex-direction:column;justify-content:center;gap:14px;font-size:12px;line-height:1.7;color:#ff9a9a}
-  #err b{color:#ff7a1a;letter-spacing:.2em;font-size:13px}
-  #err pre{white-space:pre-wrap;word-break:break-word;color:#8c9297;font-size:10.5px;max-height:46vh;overflow:auto}
+  #err{position:absolute;inset:0;z-index:990;background:#0a0b0c;display:none;padding:32px 26px;
+    flex-direction:column;justify-content:center;gap:16px;font-size:13px;line-height:1.75;color:#d8d5cf}
+  #err b{color:#ff7a1a;letter-spacing:.22em;font-size:12px}
+  #err .msg{white-space:pre-wrap;font-size:14px;line-height:1.85;color:#e8e6e1;max-width:34em}
+  #err button{align-self:flex-start;min-height:44px;padding:0 26px;background:#ff7a1a;color:#0a0b0c;
+    border:0;border-radius:3px;font:inherit;font-weight:700;letter-spacing:.16em;cursor:pointer}
+  #err details{color:#6d7479;font-size:11px}
+  #err summary{cursor:pointer;letter-spacing:.14em;min-height:32px}
+  #err pre{white-space:pre-wrap;word-break:break-word;color:#8c9297;font-size:10.5px;
+    max-height:34vh;overflow:auto;margin-top:8px}
 </style>
 </head>
 <body>
@@ -64,7 +70,12 @@
   <p>ROTATE DEVICE<br>LANDSCAPE REQUIRED</p>
 </div>
 
-<div id="err"><b>SYSTEM FAULT</b><pre id="errtext"></pre></div>
+<div id="err">
+  <b>SYSTEM FAULT</b>
+  <div class="msg" id="errmsg"></div>
+  <button id="errreload" type="button">RELOAD</button>
+  <details><summary>TECHNICAL DETAIL</summary><pre id="errtext"></pre></details>
+</div>
 
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -72,9 +83,19 @@
 <script type="module">
   const errBox = document.getElementById('err');
   const errTxt = document.getElementById('errtext');
+  const errMsg = document.getElementById('errmsg');
+  document.getElementById('errreload').onclick = () => location.reload();
+
   function fail(e){
+    document.getElementById('boot')?.remove();
     errBox.style.display = 'flex';
-    errTxt.textContent = (e && (e.stack || e.message)) || String(e);
+    // A startup failure the player can act on carries its own wording; anything
+    // else is a genuine bug and only the stack is worth showing.
+    errMsg.textContent = e?.userMessage
+      || 'The game failed to start. This is a bug, not something you did wrong.';
+    errTxt.textContent = [e?.stack || e?.message || String(e),
+                          e?.detail?.stack || e?.detail?.message || '']
+                         .filter(Boolean).join('\n\n---\n\n');
     console.error(e);
   }
   window.addEventListener('error', ev => fail(ev.error || ev.message));

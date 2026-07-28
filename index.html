@@ -326,6 +326,965 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   text-transform:uppercase;letter-spacing:.2em;color:var(--accent)}
 .ct__giac{border:1px solid var(--line);border-radius:2px;padding:24px}
 .ct__giac p{font-size:14px;color:var(--ink-2);line-height:1.6;margin-top:10px}
+
+/* ===== manifeste ===== */
+/* ============================================================
+   PART: manifeste.css — #manifeste (pinned act) + #preuves (stats act)
+   Prefix: mf-   |  Depends on shell tokens only, redefines none.
+   Base styles = the no-JS / reduced-motion static fallback.
+   Everything pinned is gated behind .mf-act.is-pinned (added by JS).
+   ============================================================ */
+
+.mf-act,
+.mf-proof{
+  --mf-ease-expo:cubic-bezier(.16,1,.3,1);
+  --mf-ease-quart:cubic-bezier(.25,1,.5,1);
+}
+
+/* ============================================================
+   1 — ACT: MANIFESTE
+   ============================================================ */
+.mf-act{padding-block:0;isolation:isolate}
+
+.mf-track{position:relative}
+
+.mf-stage{
+  position:relative;
+  display:flex;
+  align-items:center;
+  padding-block:clamp(96px,14vh,150px) clamp(72px,10vh,120px);
+}
+
+.mf-stage__bg{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(760px 520px at 88% 14%,rgba(201,242,77,.055),transparent 64%),
+    radial-gradient(620px 480px at 4% 96%,rgba(244,242,237,.035),transparent 62%);
+}
+.mf-act::before,
+.mf-act::after{
+  content:'';position:absolute;left:0;right:0;height:1px;
+  background:var(--line);z-index:2;pointer-events:none;
+}
+.mf-act::before{top:0}
+.mf-act::after{bottom:0}
+
+/* decorative guillemet */
+.mf-quote{
+  position:absolute;z-index:0;pointer-events:none;user-select:none;
+  top:clamp(40px,8vh,96px);right:clamp(12px,4vw,72px);
+  font-family:var(--serif);font-size:clamp(160px,26vw,420px);
+  line-height:.7;color:var(--ink);opacity:.045;
+}
+
+.mf-stage__in{
+  position:relative;z-index:1;width:100%;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:clamp(28px,4vw,52px);
+}
+
+/* --- HUD: eyebrow, act title, beat counter, progress rail --- */
+.mf-hud{display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.mf-act__title{
+  font-family:var(--mono);
+  font-size:clamp(10px,.78vw,11.5px);
+  font-weight:400;line-height:1.4;
+  text-transform:uppercase;letter-spacing:.24em;
+  color:var(--ink-2);
+}
+.mf-meter{display:none;align-items:center;gap:16px}
+.mf-meter__num{
+  font-family:var(--mono);font-size:clamp(10px,.78vw,11.5px);
+  letter-spacing:.16em;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.mf-meter__num b{font-weight:500;color:var(--accent)}
+.mf-meter__num i{font-style:normal;opacity:.45}
+.mf-rail{
+  display:block;background:var(--line-2);overflow:hidden;flex:none;
+  width:clamp(64px,12vw,120px);height:1px;
+}
+.mf-rail__fill{
+  display:block;width:100%;height:100%;background:var(--accent);
+  transform-origin:0 50%;
+  transform:scaleX(var(--mf-p,0));
+  will-change:transform;
+}
+
+/* --- the lines (static fallback = simple stack) --- */
+.mf-lines{display:flex;flex-direction:column;gap:clamp(34px,5vw,60px)}
+
+.mf-line{
+  font-family:var(--serif);
+  font-weight:400;
+  font-size:clamp(29px,5.2vw,64px);
+  line-height:1.02;
+  letter-spacing:-.025em;
+  color:var(--ink);
+  max-width:18ch;
+  text-wrap:balance;
+}
+.mf-row{display:block}
+.mf-row>span{display:block}
+
+.mf-row--note{
+  font-family:var(--sans);
+  font-size:clamp(14px,1.15vw,16.5px);
+  line-height:1.55;letter-spacing:-.005em;
+  color:var(--ink-2);
+  max-width:44ch;
+  margin-top:clamp(18px,2.2vw,30px);
+  padding-top:16px;
+  border-top:1px solid var(--line);
+}
+
+/* --- PINNED MODE (JS-enabled, motion allowed) --- */
+.mf-act.is-pinned .mf-track{
+  min-height:300vh;
+  min-height:300svh;
+}
+.mf-act.is-pinned .mf-stage{
+  position:-webkit-sticky;
+  position:sticky;
+  top:0;
+  min-height:100vh;
+  min-height:100svh;
+  overflow:hidden;
+}
+.mf-act.is-pinned .mf-stage__in{
+  grid-template-columns:minmax(0,1fr);
+  align-content:center;
+}
+.mf-act.is-pinned .mf-meter{display:flex}
+
+.mf-act.is-pinned .mf-lines{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  align-items:start;
+  gap:0;
+}
+.mf-act.is-pinned .mf-line{
+  grid-area:1 / 1;
+  opacity:0;
+  transition:opacity .5s var(--mf-ease-quart);
+}
+.mf-act.is-pinned .mf-line.is-on{
+  opacity:1;
+  transition-duration:.7s;
+}
+
+/* wipe: rows sit below, rise into place, exit upward */
+.mf-act.is-pinned .mf-row{
+  overflow:hidden;
+  padding-bottom:.16em;
+  margin-bottom:-.16em;
+}
+.mf-act.is-pinned .mf-row>span{
+  transform:translateY(112%);
+  transition:transform .92s var(--mf-ease-expo);
+  transition-delay:calc(var(--i,0) * 62ms);
+  will-change:transform;
+}
+.mf-act.is-pinned .mf-line.is-on .mf-row>span{transform:none}
+.mf-act.is-pinned .mf-line.is-past .mf-row>span{
+  transform:translateY(-112%);
+  transition-duration:.6s;
+  transition-delay:calc(var(--i,0) * 26ms);
+}
+.mf-act.is-pinned .mf-row--note{
+  padding-bottom:0;margin-bottom:0;overflow:visible;
+}
+.mf-act.is-pinned .mf-row--note>span{
+  transform:none;opacity:0;
+  transition:opacity .7s var(--mf-ease-quart);
+  transition-delay:.34s;
+}
+.mf-act.is-pinned .mf-line.is-on .mf-row--note>span{opacity:1}
+
+/* two-column stage from tablet up */
+@media (min-width:820px){
+  .mf-stage__in{
+    grid-template-columns:minmax(180px,20%) minmax(0,1fr);
+    gap:clamp(32px,5vw,80px);
+    align-items:start;
+  }
+  .mf-hud{padding-top:.5em}
+  .mf-act.is-pinned .mf-stage__in{
+    grid-template-columns:minmax(180px,20%) minmax(0,1fr);
+    align-items:center;
+  }
+  .mf-meter{flex-direction:column;align-items:flex-start;gap:18px}
+  .mf-rail{width:1px;height:clamp(90px,14vh,160px)}
+  .mf-rail__fill{
+    transform-origin:50% 0;
+    transform:scaleY(var(--mf-p,0));
+  }
+}
+
+@media (min-width:1180px){
+  .mf-stage__in{grid-template-columns:minmax(200px,18%) minmax(0,1fr)}
+  .mf-line{font-size:clamp(48px,4.6vw,64px)}
+}
+
+/* ============================================================
+   2 — ACT: PREUVES  (asymmetric stat grid)
+   ============================================================ */
+.mf-proof{overflow:hidden}
+
+.mf-proof__head{max-width:64ch}
+.mf-proof__h{
+  margin-block:clamp(18px,2.6vw,32px) clamp(20px,2.6vw,34px);
+  max-width:13ch;
+}
+.mf-proof__h .mask{display:block;overflow:hidden}
+
+.mf-stats{
+  list-style:none;
+  margin:clamp(58px,9vw,120px) 0 0;
+  padding:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:clamp(44px,7vw,76px);
+}
+
+.mf-stat{
+  --mf-n:clamp(58px,9vw,132px);
+  min-width:0;
+  border-top:1px solid var(--line);
+  padding-top:clamp(16px,1.8vw,24px);
+}
+.mf-stat--lead{--mf-n:clamp(72px,13vw,176px)}
+
+.mf-stat__fig{
+  display:flex;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:.42em;
+  margin-bottom:clamp(12px,1.6vw,20px);
+}
+.mf-stat__num{
+  font-family:var(--serif);
+  font-weight:400;
+  font-size:var(--mf-n);
+  line-height:.86;
+  letter-spacing:-.04em;
+  color:var(--ink);
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+}
+.mf-stat--lead .mf-stat__num{color:var(--accent)}
+
+.mf-stat__unit,
+.mf-stat__pre{
+  font-family:var(--mono);
+  font-size:clamp(10px,.8vw,12px);
+  font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:.22em;
+  color:var(--ink-3);
+  white-space:nowrap;
+  align-self:flex-end;
+  padding-bottom:.15em;
+}
+.mf-stat__pre{align-self:baseline;padding-bottom:0}
+
+.mf-stat__label{
+  font-family:var(--sans);
+  font-weight:400;
+  font-size:clamp(15px,1.25vw,18px);
+  line-height:1.35;
+  letter-spacing:-.012em;
+  color:var(--ink);
+  margin-bottom:8px;
+  text-wrap:balance;
+}
+.mf-stat__cap{
+  font-size:clamp(13px,.95vw,14.5px);
+  line-height:1.6;
+  color:var(--ink-3);
+  max-width:34ch;
+}
+
+/* --- the asymmetry: only above 820px --- */
+@media (min-width:820px){
+  .mf-stats{
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    column-gap:clamp(20px,3vw,44px);
+    row-gap:clamp(56px,8vw,124px);
+  }
+  .mf-stat--a{grid-column:1 / span 5}
+  .mf-stat--b{grid-column:8 / span 5;margin-top:clamp(40px,7vw,132px)}
+  .mf-stat--c{grid-column:2 / span 4;margin-top:clamp(8px,2.5vw,44px)}
+  .mf-stat--d{grid-column:7 / span 6}
+  .mf-stat--e{grid-column:1 / span 6;margin-top:clamp(0px,2vw,34px)}
+}
+
+/* --- norms strip --- */
+.mf-norms{
+  margin-top:clamp(64px,10vw,140px);
+  padding-top:clamp(20px,2.4vw,30px);
+  border-top:1px solid var(--line);
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:clamp(18px,2.4vw,32px);
+  align-items:start;
+}
+.mf-norms__list{
+  list-style:none;margin:0;padding:0;
+  display:flex;flex-wrap:wrap;
+  gap:10px 12px;
+}
+.mf-norms__list li{
+  font-family:var(--mono);
+  font-size:clamp(10px,.8vw,11.5px);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-2);
+  border:1px solid var(--line-2);
+  border-radius:2px;
+  padding:8px 12px;
+  white-space:nowrap;
+}
+.mf-norms__note{max-width:46ch;color:var(--ink-3)}
+
+@media (min-width:900px){
+  .mf-norms{
+    grid-template-columns:minmax(150px,1fr) minmax(0,1.7fr) minmax(0,1.3fr);
+    gap:clamp(24px,4vw,56px);
+    align-items:center;
+  }
+}
+
+/* ============================================================
+   3 — REDUCED MOTION: collapse to a static stack, no counting
+   ============================================================ */
+@media (prefers-reduced-motion:reduce){
+  .mf-act.is-pinned .mf-track{min-height:0}
+  .mf-act.is-pinned .mf-stage{position:static;min-height:0;overflow:visible}
+  .mf-act.is-pinned .mf-lines{
+    display:flex;flex-direction:column;gap:clamp(34px,5vw,60px);
+  }
+  .mf-act.is-pinned .mf-line{
+    grid-area:auto;opacity:1!important;transition:none!important;
+  }
+  .mf-act.is-pinned .mf-row{overflow:visible;padding-bottom:0;margin-bottom:0}
+  .mf-act.is-pinned .mf-row>span,
+  .mf-act.is-pinned .mf-row--note>span{
+    transform:none!important;opacity:1!important;transition:none!important;
+  }
+  .mf-act.is-pinned .mf-meter{display:none}
+  .mf-rail__fill{transform:none}
+  .mf-quote{display:none}
+}
+
+/* ===== expertise ===== */
+/* ============================================================
+   SECTIONS #expertise + #mesures — prefix: xp-
+   Uses only shell tokens: --bg-2 --ink --ink-2 --ink-3 --accent
+   --line --line-2 --serif --sans --mono --ease
+   ============================================================ */
+
+/* --- section head ------------------------------------------ */
+.xp-head{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
+  gap:clamp(26px,4vw,72px);
+  align-items:end;
+  padding-bottom:clamp(46px,6.5vw,92px);
+}
+.xp-head__title{
+  margin-top:clamp(16px,2.2vw,28px);
+  max-width:11ch;
+}
+.xp-head__aside{
+  display:flex;
+  flex-direction:column;
+  gap:clamp(16px,1.8vw,24px);
+  padding-bottom:.35em;
+}
+.xp-count{
+  display:flex;align-items:center;gap:12px;
+  font-family:var(--mono);font-size:10px;font-weight:400;
+  text-transform:uppercase;letter-spacing:.22em;color:var(--ink-3);
+}
+.xp-count::before{
+  content:'';flex:none;width:26px;height:1px;background:var(--line-2);
+}
+.xp-head__aside .lede{max-width:54ch}
+
+@media (max-width:900px){
+  .xp-head{grid-template-columns:minmax(0,1fr);align-items:start;gap:clamp(22px,5vw,34px)}
+  .xp-head__title{max-width:14ch}
+  .xp-head__aside{padding-bottom:0}
+}
+
+/* --- editorial list ---------------------------------------- */
+.xp-list{
+  list-style:none;
+  margin:0;padding:0;
+  border-top:1px solid var(--line);
+}
+.xp-item{
+  position:relative;
+  border-bottom:1px solid var(--line);
+}
+/* accent hairline that draws in from the left on hover / focus */
+.xp-item::after{
+  content:'';
+  position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:var(--accent);
+  transform:scaleX(0);transform-origin:left center;
+  transition:transform .75s var(--ease);
+  pointer-events:none;
+}
+.xp-item:hover::after,
+.xp-item:focus-within::after{transform:scaleX(1)}
+
+/* --- row (summary) ----------------------------------------- */
+.xp-row{display:block}
+.xp-row__sum{
+  display:grid;
+  grid-template-columns:clamp(48px,5.4vw,86px) minmax(0,1.02fr) minmax(0,1.3fr) 30px;
+  column-gap:clamp(14px,2.4vw,40px);
+  row-gap:10px;
+  align-items:start;
+  padding-block:clamp(22px,3vw,38px);
+  cursor:pointer;
+  list-style:none;
+}
+.xp-row__sum::-webkit-details-marker{display:none}
+.xp-row__sum::marker{content:''}
+
+.xp-row__idx{
+  grid-column:1;
+  font-family:var(--mono);font-size:clamp(11px,.85vw,12.5px);
+  letter-spacing:.14em;color:var(--ink-3);
+  padding-top:.55em;
+  transition:color .45s var(--ease);
+}
+.xp-row__title{
+  grid-column:2;
+  color:var(--ink);
+  overflow-wrap:break-word;
+  transition:color .45s var(--ease),opacity .45s var(--ease);
+}
+.xp-row__desc{
+  grid-column:3;
+  font-size:clamp(13.5px,.95vw,15px);
+  line-height:1.6;
+  color:var(--ink-2);
+  padding-top:.35em;
+  max-width:46ch;
+  overflow-wrap:break-word;
+  transition:color .45s var(--ease);
+}
+.xp-item:hover .xp-row__idx,
+.xp-item:focus-within .xp-row__idx{color:var(--accent)}
+.xp-item:hover .xp-row__desc,
+.xp-item:focus-within .xp-row__desc{color:var(--ink)}
+
+/* plus / minus indicator, built from two hairlines */
+.xp-row__ico{
+  grid-column:4;
+  position:relative;
+  width:15px;height:15px;
+  margin-top:.65em;
+  justify-self:end;flex:none;
+}
+.xp-row__ico::before,
+.xp-row__ico::after{
+  content:'';position:absolute;left:0;top:7px;
+  width:15px;height:1px;background:var(--ink-3);
+  transition:transform .5s var(--ease),background-color .45s var(--ease);
+}
+.xp-row__ico::after{transform:rotate(90deg)}
+.xp-item:hover .xp-row__ico::before,
+.xp-item:hover .xp-row__ico::after,
+.xp-item:focus-within .xp-row__ico::before,
+.xp-item:focus-within .xp-row__ico::after{background:var(--accent)}
+.xp-row[open] .xp-row__ico::after{transform:rotate(90deg) scaleX(0)}
+
+/* --- expanded body ----------------------------------------- */
+.xp-row__body{
+  padding-left:calc(clamp(48px,5.4vw,86px) + clamp(14px,2.4vw,40px));
+  padding-bottom:clamp(28px,3.6vw,44px);
+  padding-right:clamp(0px,4vw,60px);
+  max-width:78ch;
+}
+.xp-row__body .small{color:var(--ink-2);max-width:62ch}
+.xp-row[open] .xp-row__body{animation:xp-in .6s var(--ease) both}
+@keyframes xp-in{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+
+.xp-link{
+  display:inline-block;
+  font-family:var(--mono);font-size:10px;
+  text-transform:uppercase;letter-spacing:.16em;
+  color:var(--accent);
+  margin-left:6px;
+  padding-bottom:2px;
+  border-bottom:1px solid var(--line-2);
+  transition:border-color .4s var(--ease);
+}
+.xp-link:hover,
+.xp-link:focus-visible{border-bottom-color:var(--accent)}
+
+/* --- inline tag row ---------------------------------------- */
+.xp-tags{
+  list-style:none;margin:18px 0 0;padding:0;
+  display:flex;flex-wrap:wrap;gap:8px 16px;
+}
+.xp-tags li{
+  display:flex;align-items:center;gap:16px;
+  font-family:var(--mono);font-size:9.5px;font-weight:400;
+  text-transform:uppercase;letter-spacing:.17em;color:var(--ink-3);
+}
+.xp-tags li:not(:last-child)::after{
+  content:'';width:1px;height:9px;background:var(--line-2);flex:none;
+}
+
+/* --- norms / référentiels d'essai --------------------------- */
+.xp-norms{
+  display:grid;
+  grid-template-columns:minmax(0,.7fr) minmax(0,2fr);
+  gap:clamp(18px,3vw,56px);
+  margin-top:clamp(52px,7vw,96px);
+  padding-top:clamp(28px,3.6vw,44px);
+  border-top:1px solid var(--line);
+}
+.xp-norms__label{
+  display:flex;align-items:center;gap:12px;
+  font-family:var(--mono);font-size:10px;
+  text-transform:uppercase;letter-spacing:.22em;color:var(--ink-3);
+  padding-top:2px;
+}
+.xp-norms__label::before{
+  content:'';flex:none;width:22px;height:1px;background:var(--accent);opacity:.8;
+}
+.xp-norms__lead{
+  font-size:clamp(14px,1.05vw,16px);
+  color:var(--ink-2);max-width:52ch;margin-bottom:20px;
+}
+.xp-normlist{
+  list-style:none;margin:0;padding:0;
+  display:flex;flex-wrap:wrap;gap:10px;
+}
+.xp-norm{
+  display:inline-flex;align-items:center;gap:12px;
+  padding:10px 14px;
+  border:1px solid var(--line-2);border-radius:2px;
+  background:var(--bg-2);
+  transition:border-color .45s var(--ease);
+}
+.xp-norm::before{
+  content:'';flex:none;width:14px;height:1px;background:var(--accent);
+}
+.xp-norm:hover{border-color:var(--line)}
+.xp-norm__code{
+  font-family:var(--mono);font-size:11px;font-weight:500;
+  letter-spacing:.08em;color:var(--ink);white-space:nowrap;
+}
+.xp-norm__dom{
+  font-family:var(--mono);font-size:9px;
+  text-transform:uppercase;letter-spacing:.18em;color:var(--ink-3);
+}
+.xp-norms__note{
+  margin-top:18px;
+  font-size:12.5px;line-height:1.6;color:var(--ink-3);max-width:56ch;
+}
+
+/* --- closing CTA -------------------------------------------- */
+.xp-cta{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:clamp(16px,2.4vw,30px);
+  margin-top:clamp(38px,5vw,64px);
+}
+.xp-cta__note{
+  font-family:var(--mono);font-size:10px;
+  text-transform:uppercase;letter-spacing:.17em;color:var(--ink-3);
+}
+
+/* --- responsive --------------------------------------------- */
+@media (max-width:900px){
+  .xp-row__sum{
+    grid-template-columns:clamp(36px,9vw,54px) minmax(0,1fr) 22px;
+    column-gap:14px;row-gap:9px;
+  }
+  .xp-row__idx{grid-column:1;grid-row:1;padding-top:.4em}
+  .xp-row__title{grid-column:2;grid-row:1}
+  .xp-row__ico{grid-column:3;grid-row:1;width:13px;height:13px;margin-top:.5em}
+  .xp-row__ico::before,.xp-row__ico::after{width:13px;top:6px}
+  .xp-row__desc{grid-column:2 / span 2;grid-row:2;padding-top:0;max-width:none}
+  .xp-row__body{
+    padding-left:calc(clamp(36px,9vw,54px) + 14px);
+    padding-right:0;
+  }
+  .xp-norms{grid-template-columns:minmax(0,1fr);gap:20px}
+}
+
+@media (max-width:520px){
+  .xp-row__sum{grid-template-columns:32px minmax(0,1fr) 20px;column-gap:12px}
+  .xp-row__body{padding-left:44px}
+  .xp-norm{gap:9px;padding:9px 12px}
+  .xp-norm__code{font-size:10.5px}
+  .xp-cta{gap:18px}
+  .xp-cta .btn{width:100%;justify-content:center}
+}
+
+/* --- motion opt-out ----------------------------------------- */
+@media (prefers-reduced-motion:reduce){
+  .xp-item::after{transition:none}
+  .xp-item:hover::after,
+  .xp-item:focus-within::after{transform:scaleX(1)}
+  .xp-row[open] .xp-row__body{animation:none}
+  .xp-row__idx,.xp-row__title,.xp-row__desc,
+  .xp-row__ico::before,.xp-row__ico::after,
+  .xp-link,.xp-norm{transition:none}
+}
+
+/* ===== methode ===== */
+/* ============================================================
+   PARTS — MÉTHODE · AIR & SANTÉ · RÉFÉRENCES     prefix: md-
+   Uses shell tokens only (--bg, --ink*, --accent, --line*,
+   --serif, --sans, --mono, --gutter, --maxw, --ease).
+   Locally-scoped custom props are prefixed --md-*.
+   ============================================================ */
+
+/* --- shared: continuity hairline between the three acts ----- */
+.md-methode,.md-air,.md-refs{position:relative}
+.md-methode::before,.md-air::before,.md-refs::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;z-index:2;
+  background:var(--line);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);
+}
+
+/* --- shared: visually hidden -------------------------------- */
+.md-vh{
+  position:absolute!important;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;border:0;padding:0;margin:-1px;
+}
+
+/* --- shared: section header block --------------------------- */
+.md-head{max-width:min(100%,940px)}
+.md-head h2{margin-block:clamp(18px,2.4vw,30px) clamp(18px,2vw,26px)}
+
+/* ============================================================
+   1 — MÉTHODE  (pinned stepper)
+   ============================================================ */
+.md-methode__in{
+  display:grid;
+  grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+  gap:clamp(30px,5vw,100px);
+  align-items:start;
+}
+.md-methode__sticky{position:sticky;top:clamp(100px,13vh,148px)}
+.md-methode__aside h2{margin-block:clamp(16px,2.2vw,26px) clamp(14px,1.6vw,20px)}
+.md-methode__intro{max-width:34ch}
+
+/* oversized crossfading numeral */
+.md-count{
+  display:flex;align-items:flex-end;gap:clamp(8px,1vw,14px);
+  margin-top:clamp(26px,4vw,52px);
+}
+.md-count__stack{
+  position:relative;display:block;
+  font-family:var(--serif);font-weight:400;
+  font-size:clamp(76px,11vw,168px);line-height:.82;letter-spacing:-.045em;
+  width:2.05ch;height:.82em;
+}
+.md-count__n{
+  position:absolute;inset:0;display:block;
+  color:var(--ink);opacity:0;transform:translateY(.1em);
+  transition:opacity .55s var(--ease),transform .7s var(--ease);
+  will-change:opacity,transform;
+}
+.md-count__n.md-on{opacity:1;transform:none}
+.md-count__tot{
+  font-family:var(--mono);font-size:clamp(10px,.8vw,12px);
+  letter-spacing:.2em;color:var(--ink-2);padding-bottom:.9em;
+}
+
+/* progress hairline */
+.md-prog{
+  --md-p:0;
+  position:relative;width:1px;height:clamp(56px,8vh,104px);
+  background:var(--line-2);margin-top:clamp(20px,2.6vw,34px);
+}
+.md-prog__bar{
+  position:absolute;inset:0;background:var(--accent);transform-origin:top;
+  transform:scaleY(var(--md-p,0));
+  transition:transform .7s var(--ease);
+}
+
+/* steps */
+.md-steps{list-style:none;margin:0;padding:0}
+.md-step{
+  display:grid;grid-template-columns:auto minmax(0,1fr);
+  gap:clamp(14px,2.4vw,40px);
+  padding-block:clamp(24px,3.2vw,42px);
+  border-top:1px solid var(--line);
+}
+.md-step:last-child{border-bottom:1px solid var(--line)}
+.md-step__k{
+  font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.18em;
+  color:var(--ink-2);padding-top:.5em;transition:color .5s var(--ease);
+}
+.md-step__k::after{
+  content:'';display:block;width:24px;height:1px;background:var(--accent);
+  margin-top:14px;transform:scaleX(0);transform-origin:left;
+  transition:transform .6s var(--ease);
+}
+.md-step__t{
+  font-size:clamp(24px,2.1vw,32px);line-height:1.1;
+  transition:color .5s var(--ease);
+}
+.md-step__d{
+  margin-top:12px;max-width:48ch;color:var(--ink-2);
+  font-size:clamp(14px,.98vw,15.5px);line-height:1.62;
+}
+
+/* dimming only applies once the observer is running (JS on) */
+.md-methode.md-js .md-step__t{color:var(--ink-3)}
+.md-methode.md-js .md-step__k{color:var(--ink-3)}
+.md-methode.md-js .md-step.md-on .md-step__t{color:var(--ink)}
+.md-methode.md-js .md-step.md-on .md-step__k{color:var(--accent)}
+.md-methode.md-js .md-step.md-on .md-step__k::after{transform:none}
+
+@media (max-width:900px){
+  .md-methode__in{grid-template-columns:minmax(0,1fr);gap:clamp(28px,6vw,48px)}
+  .md-methode__sticky{position:static}
+  .md-count{margin-top:clamp(20px,4vw,32px)}
+  .md-prog{display:none}
+}
+@media (max-width:420px){
+  .md-step{grid-template-columns:minmax(0,1fr);gap:10px}
+  .md-step__k{padding-top:0}
+  .md-step__k::after{margin-top:10px}
+}
+@media (max-height:720px) and (min-width:901px){
+  .md-count__stack{font-size:clamp(58px,7vw,96px)}
+  .md-prog{height:44px}
+}
+
+/* ============================================================
+   2 — AIR & SANTÉ  (the single ember act)
+   ============================================================ */
+.md-air{
+  --md-ember:#ff5b1f;
+  --md-ember-hi:#ff7a48;
+  --md-ember-ink:#170601;
+  isolation:isolate;
+  overflow:hidden;
+}
+.md-air__wash{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(100% 80% at 50% 110%,rgba(255,91,31,.16),transparent 70%);
+}
+.md-air__in{position:relative;z-index:1}
+.md-air .eyebrow::before{background:var(--md-ember);opacity:1}
+.md-air .serif-it{color:var(--md-ember)}
+
+/* sub-offers */
+.md-offers{
+  list-style:none;margin:clamp(46px,6vw,86px) 0 0;padding:0;
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(26px,3.4vw,56px) clamp(26px,4vw,72px);
+}
+.md-offer{
+  position:relative;border-top:1px solid var(--line);
+  padding-top:clamp(16px,1.8vw,24px);
+}
+.md-offer::after{
+  content:'';position:absolute;left:0;right:0;top:0;height:1px;
+  background:var(--md-ember);transform:scaleX(0);transform-origin:left;
+  transition:transform .6s var(--ease);
+}
+@media (hover:hover){
+  .md-offer:hover::after{transform:none}
+}
+.md-offer__k{
+  display:block;font-family:var(--mono);font-size:11px;font-weight:500;
+  letter-spacing:.2em;color:var(--md-ember);
+}
+.md-offer__t{margin-block:clamp(12px,1.4vw,18px) 10px;font-size:clamp(21px,1.9vw,28px)}
+.md-offer__d{
+  color:var(--ink-2);font-size:clamp(14px,.98vw,15.5px);line-height:1.62;
+  max-width:46ch;
+}
+
+/* the one-dossier argument */
+.md-air__claim{
+  margin-top:clamp(52px,7vw,104px);
+  padding-top:clamp(26px,3.2vw,44px);
+  border-top:1px solid var(--line-2);
+  display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
+  gap:clamp(24px,4vw,72px);align-items:end;
+}
+.md-quote{
+  grid-column:1/-1;
+  font-family:var(--serif);font-weight:400;
+  font-size:clamp(25px,3.1vw,44px);line-height:1.14;letter-spacing:-.025em;
+  max-width:26ch;color:var(--ink);
+  margin-bottom:clamp(20px,2.6vw,38px);
+}
+.md-quote__mark{color:var(--md-ember)}
+.md-air__note{max-width:44ch;margin:0}
+.md-air__cta{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start}
+.md-air .btn.md-btn--ember{
+  background:var(--md-ember);border-color:var(--md-ember);color:var(--md-ember-ink);
+}
+.md-air .btn.md-btn--ember:hover{
+  background:var(--md-ember-hi);border-color:var(--md-ember-hi);color:var(--md-ember-ink);
+}
+.md-air .btn:focus-visible{outline-color:var(--md-ember)}
+
+@media (min-width:961px){
+  .md-air__cta{justify-content:flex-end}
+}
+@media (max-width:960px){
+  .md-air__claim{grid-template-columns:minmax(0,1fr);align-items:start}
+}
+@media (max-width:700px){
+  .md-offers{grid-template-columns:minmax(0,1fr);gap:clamp(24px,5vw,34px)}
+}
+
+/* ============================================================
+   3 — RÉFÉRENCES  (editorial table)
+   ============================================================ */
+.md-figs{
+  list-style:none;margin:clamp(44px,6vw,84px) 0 clamp(38px,5vw,68px);padding:0;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:clamp(18px,3vw,48px);
+}
+.md-fig{border-top:1px solid var(--line);padding-top:clamp(14px,1.6vw,20px)}
+.md-fig__n{
+  display:block;font-family:var(--serif);
+  font-size:clamp(38px,5vw,72px);line-height:.95;letter-spacing:-.035em;
+}
+.md-fig:nth-child(2) .md-fig__n{color:var(--accent)}
+.md-fig__l{
+  display:block;margin-top:clamp(10px,1.2vw,16px);
+  font-family:var(--mono);font-size:10px;text-transform:uppercase;
+  letter-spacing:.17em;line-height:1.7;color:var(--ink-2);max-width:26ch;
+}
+
+.md-tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.md-tbl{
+  width:100%;border-collapse:separate;border-spacing:0;text-align:left;
+  table-layout:fixed;
+}
+.md-tbl th{
+  font-family:var(--mono);font-weight:400;font-size:10px;
+  text-transform:uppercase;letter-spacing:.2em;color:var(--ink-2);
+  padding:0 clamp(10px,1.5vw,28px) 14px 0;
+  border-bottom:1px solid var(--line-2);vertical-align:bottom;
+}
+.md-tbl th:nth-child(1){width:15%}
+.md-tbl th:nth-child(2){width:29%}
+.md-tbl th:nth-child(3){width:17%}
+.md-tbl th:nth-child(4){width:39%}
+.md-tbl th:last-child,.md-tbl td:last-child{padding-right:0}
+
+.md-tbl tbody tr{transition:transform .45s var(--ease)}
+.md-tbl td{
+  position:relative;vertical-align:top;
+  padding:clamp(18px,2.2vw,30px) clamp(10px,1.5vw,28px) clamp(18px,2.2vw,30px) 0;
+  border-bottom:1px solid var(--line);
+  overflow-wrap:anywhere;
+}
+.md-tbl td::after{
+  content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:var(--accent);transform:scaleX(0);transform-origin:left;
+  transition:transform .5s var(--ease);
+}
+.md-tbl td:nth-child(2)::after{transition-delay:.04s}
+.md-tbl td:nth-child(3)::after{transition-delay:.08s}
+.md-tbl td:nth-child(4)::after{transition-delay:.12s}
+
+.md-tbl__y{
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink-2);
+  padding-top:calc(clamp(18px,2.2vw,30px) + .35em)!important;
+}
+.md-tbl__p{
+  font-family:var(--serif);font-size:clamp(19px,1.65vw,25px);
+  line-height:1.16;letter-spacing:-.02em;color:var(--ink);
+  transition:color .4s var(--ease);
+}
+.md-tbl__dm{
+  font-family:var(--mono);font-size:10px;text-transform:uppercase;
+  letter-spacing:.16em;line-height:1.7;color:var(--ink-2);
+  padding-top:calc(clamp(18px,2.2vw,30px) + .35em)!important;
+}
+.md-tbl__s{color:var(--ink-2);font-size:clamp(14px,.95vw,15px);line-height:1.6}
+
+@media (hover:hover){
+  .md-tbl tbody tr:hover{transform:translateY(-3px)}
+  .md-tbl tbody tr:hover td::after{transform:none}
+  .md-tbl tbody tr:hover .md-tbl__s{color:var(--ink)}
+}
+.md-refs__foot{margin-top:clamp(26px,3vw,40px);max-width:52ch}
+
+@media (max-width:760px){
+  .md-figs{grid-template-columns:minmax(0,1fr);gap:clamp(18px,4vw,26px)}
+  .md-fig{display:flex;align-items:baseline;gap:clamp(14px,4vw,22px)}
+  .md-fig__n{font-size:clamp(32px,9vw,52px);min-width:2.4ch}
+  .md-fig__l{margin-top:0;max-width:30ch}
+
+  .md-tblwrap{overflow-x:visible}
+  .md-tbl,.md-tbl thead,.md-tbl tbody,.md-tbl td{display:block;width:100%}
+  .md-tbl{table-layout:auto}
+  .md-tbl__head{
+    position:absolute;width:1px;height:1px;overflow:hidden;
+    clip-path:inset(50%);white-space:nowrap;
+  }
+  .md-tbl tbody tr{
+    display:flex;flex-direction:column;
+    border-top:1px solid var(--line);padding-block:clamp(22px,5vw,30px);
+  }
+  .md-tbl tbody tr:last-child{border-bottom:1px solid var(--line)}
+  .md-tbl td{
+    border-bottom:0;padding:0 0 10px!important;
+  }
+  .md-tbl td:last-child{padding-bottom:0!important}
+  .md-tbl td::after{display:none}
+  .md-tbl td::before{
+    content:attr(data-l);display:block;margin-bottom:5px;
+    font-family:var(--mono);font-size:9.5px;text-transform:uppercase;
+    letter-spacing:.2em;color:var(--ink-2);
+  }
+  .md-tbl__p{order:1;font-size:clamp(21px,6vw,28px)}
+  .md-tbl__p::before{display:none}
+  .md-tbl__y{order:2}
+  .md-tbl__dm{order:3}
+  .md-tbl__s{order:4}
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion:reduce){
+  .md-methode__sticky{position:static}
+  .md-count__n{
+    position:static;opacity:1;transform:none;transition:none;
+  }
+  .md-count__stack{width:auto;height:auto;display:none}
+  .md-count{display:none}
+  .md-prog{display:none}
+  .md-methode.md-js .md-step__t,
+  .md-methode .md-step__t{color:var(--ink)}
+  .md-methode.md-js .md-step__k,
+  .md-methode .md-step__k{color:var(--ink-2)}
+  .md-step__k::after,
+  .md-offer::after,
+  .md-tbl td::after{transition:none}
+  .md-tbl tbody tr{transition:none}
+  .md-tbl tbody tr:hover{transform:none}
+}
 </style>
 </head>
 <body>
@@ -392,7 +1351,723 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   </div>
 </section>
 
-<!-- SECTIONS INJECTED HERE -->
+<!-- ============================================================
+     PART: manifeste.html  —  sections #manifeste + #preuves
+     Class prefix: mf-
+     PLACEHOLDER TOKENS INTRODUCED: none.
+       (Headcount deliberately omitted — the 10–19 registry band is stale.
+        If a team stat is ever wanted, drop {{EFFECTIF}} into a .mf-stat block.)
+     FACTS USED (all sourced): création 2003 · 4 agences (Marseille, Lyon,
+       Paris, Toulon ; direction au siège d'Aix-en-Provence) · 3 lignes de
+       tramway à Marseille · 27 écrans acoustiques ferroviaires vallée du
+       Rhône · SNCF Réseau depuis 2008 (nord de Toulouse) · SNCF Réseau
+       depuis 2022 (isolation de façades) · NF EN 1793-5 / 1793-6 /
+       16272-5 / 16272-6 · membre du GIAC.
+     REQUIRES: manifeste.css, manifeste.js
+     ============================================================ -->
+
+<!-- ======================= ACT — MANIFESTE ======================= -->
+<section id="manifeste" class="mf-act" aria-labelledby="mf-act-title">
+  <div class="mf-track" data-mf-track>
+    <div class="mf-stage">
+      <div class="mf-stage__bg" aria-hidden="true"></div>
+      <span class="mf-quote" aria-hidden="true">&laquo;</span>
+
+      <div class="wrap mf-stage__in">
+
+        <div class="mf-hud">
+          <p class="eyebrow">Manifeste</p>
+          <h2 id="mf-act-title" class="mf-act__title">L'acte d'ind&eacute;pendance</h2>
+          <div class="mf-meter" aria-hidden="true">
+            <span class="mf-meter__num"><b data-mf-current>01</b><i>/</i><span>03</span></span>
+            <span class="mf-rail"><i class="mf-rail__fill" data-mf-fill></i></span>
+          </div>
+        </div>
+
+        <div class="mf-lines">
+
+          <p class="mf-line" data-mf-beat="0">
+            <span class="mf-row" style="--i:0"><span>Un bureau d'&eacute;tudes</span></span>
+            <span class="mf-row" style="--i:1"><span>ne vend pas</span></span>
+            <span class="mf-row" style="--i:2"><span>de solutions.</span></span>
+            <span class="mf-row" style="--i:3"><span>Il les <em class="serif-it">d&eacute;montre</em>.</span></span>
+          </p>
+
+          <p class="mf-line" data-mf-beat="1">
+            <span class="mf-row" style="--i:0"><span>Membre du GIAC,</span></span>
+            <span class="mf-row" style="--i:1"><span>nous exer&ccedil;ons en toute</span></span>
+            <span class="mf-row" style="--i:2"><span><em class="serif-it">ind&eacute;pendance</em> technique,</span></span>
+            <span class="mf-row" style="--i:3"><span>juridique, commerciale</span></span>
+            <span class="mf-row" style="--i:4"><span>et financi&egrave;re.</span></span>
+            <span class="mf-row mf-row--note" style="--i:5"><span>Vis-&agrave;-vis de l'ensemble des solutions que nous pr&eacute;conisons.</span></span>
+          </p>
+
+          <p class="mf-line" data-mf-beat="2">
+            <span class="mf-row" style="--i:0"><span>Aucun int&eacute;r&ecirc;t</span></span>
+            <span class="mf-row" style="--i:1"><span>dans les produits</span></span>
+            <span class="mf-row" style="--i:2"><span>que nous prescrivons.</span></span>
+            <span class="mf-row" style="--i:3"><span>Seulement des r&eacute;sultats</span></span>
+            <span class="mf-row" style="--i:4"><span><em class="serif-it">mesurables</em>.</span></span>
+          </p>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= ACT — PREUVES ======================== -->
+<section id="preuves" class="mf-proof" aria-labelledby="mf-proof-title">
+  <div class="wrap">
+
+    <div class="mf-proof__head">
+      <p class="eyebrow reveal">Preuves</p>
+      <h2 id="mf-proof-title" class="mf-proof__h">
+        <span class="mask" style="--d:.05s"><span>Des chiffres,</span></span>
+        <span class="mask" style="--d:.14s"><span>pas des <em class="serif-it">adjectifs</em>.</span></span>
+      </h2>
+      <p class="lede reveal" style="--d:.24s">
+        Plus de vingt ans d'interventions sur des infrastructures en service&nbsp;:
+        r&eacute;seaux de tramway, lignes ferroviaires, b&acirc;timents riverains.
+        Chaque projet mesur&eacute;, mod&eacute;lis&eacute;, document&eacute;, r&eacute;ceptionn&eacute;.
+      </p>
+    </div>
+
+    <ul class="mf-stats">
+
+      <li class="mf-stat mf-stat--a reveal">
+        <p class="mf-stat__fig">
+          <span class="mf-stat__pre">depuis</span><span class="mf-stat__num" data-mf-count="2003">2003</span>
+        </p>
+        <h3 class="mf-stat__label">Ann&eacute;e de cr&eacute;ation</h3>
+        <p class="mf-stat__cap">Bureau d'&eacute;tudes ind&eacute;pendant en acoustique et vibrations.</p>
+      </li>
+
+      <li class="mf-stat mf-stat--b reveal" style="--d:.08s">
+        <p class="mf-stat__fig">
+          <span class="mf-stat__num" data-mf-count="4">4</span><span class="mf-stat__unit">agences</span>
+        </p>
+        <h3 class="mf-stat__label">Marseille &middot; Lyon &middot; Paris &middot; Toulon</h3>
+        <p class="mf-stat__cap">Direction au si&egrave;ge d'Aix-en-Provence.</p>
+      </li>
+
+      <li class="mf-stat mf-stat--c reveal" style="--d:.06s">
+        <p class="mf-stat__fig">
+          <span class="mf-stat__num" data-mf-count="3">3</span><span class="mf-stat__unit">lignes</span>
+        </p>
+        <h3 class="mf-stat__label">Tramway de Marseille</h3>
+        <p class="mf-stat__cap">Intervention acoustique sur les trois lignes du r&eacute;seau.</p>
+      </li>
+
+      <li class="mf-stat mf-stat--d mf-stat--lead reveal" style="--d:.12s">
+        <p class="mf-stat__fig">
+          <span class="mf-stat__num" data-mf-count="27">27</span><span class="mf-stat__unit">&eacute;crans</span>
+        </p>
+        <h3 class="mf-stat__label">&Eacute;crans acoustiques ferroviaires</h3>
+        <p class="mf-stat__cap">R&eacute;alis&eacute;s le long des voies dans la vall&eacute;e du Rh&ocirc;ne.</p>
+      </li>
+
+      <li class="mf-stat mf-stat--e reveal" style="--d:.1s">
+        <p class="mf-stat__fig">
+          <span class="mf-stat__pre">depuis</span><span class="mf-stat__num" data-mf-count="2008">2008</span>
+        </p>
+        <h3 class="mf-stat__label">SNCF R&eacute;seau &mdash; am&eacute;nagements ferroviaires</h3>
+        <p class="mf-stat__cap">Projets men&eacute;s au nord de Toulouse, sans interruption.</p>
+      </li>
+
+    </ul>
+
+    <div class="mf-norms reveal">
+      <p class="eyebrow">R&eacute;f&eacute;rentiels appliqu&eacute;s</p>
+      <ul class="mf-norms__list">
+        <li>NF&nbsp;EN&nbsp;1793-5</li>
+        <li>NF&nbsp;EN&nbsp;1793-6</li>
+        <li>NF&nbsp;EN&nbsp;16272-5</li>
+        <li>NF&nbsp;EN&nbsp;16272-6</li>
+      </ul>
+      <p class="mf-norms__note small">
+        Depuis 2022, nous r&eacute;alisons pour SNCF R&eacute;seau l'isolation acoustique
+        de fa&ccedil;ades de logements riverains.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!--
+  ============================================================
+  CIA ACOUSTIQUE — sections #expertise + #mesures
+  Class prefix: xp-    |    CSS: expertise.css    |    JS: none
+  ------------------------------------------------------------
+  PLACEHOLDER TOKENS INTRODUCED: none.
+  All copy is sourced from the client's own page names / page copy.
+  No certification, accreditation, phone, e-mail, price, client name
+  or statistic is claimed anywhere in this fragment.
+  The four NF EN references are worded as norms the tests are
+  carried out to (« essais réalisés selon les normes »), never as
+  an accreditation held by CIA.
+  ============================================================
+-->
+
+<!-- ==================== PRESTATIONS D'INGÉNIERIE ==================== -->
+<section id="expertise" aria-labelledby="xp-expertise-title">
+  <div class="wrap">
+
+    <header class="xp-head">
+      <div class="xp-head__lead">
+        <p class="eyebrow reveal">Prestations d'ingénierie</p>
+        <h2 class="xp-head__title reveal" id="xp-expertise-title" style="--d:.06s">
+          De l'étude à la <i class="serif-it">prescription</i>
+        </h2>
+      </div>
+      <div class="xp-head__aside">
+        <p class="xp-count reveal" style="--d:.1s">05 prestations</p>
+        <p class="lede reveal" style="--d:.14s">
+          Nos ingénieurs conduisent des études complexes associant mesures de terrain,
+          modélisation et prescription de solutions. Infrastructures routières et
+          ferroviaires, bâtiments, installations industrielles&nbsp;: nous dimensionnons
+          les protections acoustiques et rédigeons les dossiers réglementaires destinés
+          aux services instructeurs.
+        </p>
+      </div>
+    </header>
+
+    <ol class="xp-list">
+
+      <li class="xp-item reveal" style="--d:.04s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">01</span>
+            <h3 class="xp-row__title">Études acoustiques</h3>
+            <span class="xp-row__desc">Infrastructures neuves ou existantes et acoustique du bâtiment&nbsp;: diagnostic, modélisation, dimensionnement.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Création de voies nouvelles, élargissement de voies existantes, création de BHNS,
+              pôles multimodaux, tunnels, résorption des points noirs du bruit, revêtements de
+              chaussée silencieux, dimensionnement des protections acoustiques. En acoustique du
+              bâtiment, l'étude vise à optimiser le confort acoustique de l'ouvrage.
+            </p>
+            <ul class="xp-tags">
+              <li>Voies nouvelles</li>
+              <li>BHNS &amp; pôles multimodaux</li>
+              <li>Tunnels</li>
+              <li>Points noirs du bruit</li>
+              <li>Revêtements silencieux</li>
+              <li>Bâtiment</li>
+            </ul>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.09s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">02</span>
+            <h3 class="xp-row__title">Isolation de façades</h3>
+            <span class="xp-row__desc">Étude et travaux, conduits par une agence dédiée à la maîtrise d'œuvre.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              CIA dispose d'une agence dédiée à la maîtrise d'œuvre d'isolation de façades,
+              en appui des agences de Paris, Lyon et Marseille. Étude et travaux sont conduits
+              dans le cadre de cette mission de maîtrise d'œuvre.
+            </p>
+            <ul class="xp-tags">
+              <li>Maîtrise d'œuvre</li>
+              <li>Paris</li>
+              <li>Lyon</li>
+              <li>Marseille</li>
+            </ul>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.14s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">03</span>
+            <h3 class="xp-row__title">Études vibratoires</h3>
+            <span class="xp-row__desc">Étude et mesure vibratoire, du diagnostic amont au contrôle après travaux.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              L'étude vibratoire s'appuie sur une campagne de mesure dédiée&nbsp;: implantation
+              des points, acquisition, traitement, puis confrontation des niveaux mesurés aux
+              seuils de dommage et aux seuils de perception.
+              <a class="xp-link" href="#mesures">Voir le protocole de mesure</a>
+            </p>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.19s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">04</span>
+            <h3 class="xp-row__title">Conception d'écrans acoustiques</h3>
+            <span class="xp-row__desc">De l'étude de faisabilité à la vérification in situ de l'ouvrage posé.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Étude de faisabilité, conception pour la performance en absorption et en
+              transmission, simulation de l'efficacité, vérification in situ.
+            </p>
+            <ul class="xp-tags">
+              <li>Faisabilité</li>
+              <li>Absorption</li>
+              <li>Transmission</li>
+              <li>Simulation</li>
+              <li>Vérification in situ</li>
+            </ul>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.24s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">05</span>
+            <h3 class="xp-row__title">Surveillance de chantier</h3>
+            <span class="xp-row__desc">Gestion des nuisances des chantiers de construction.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Gestion des nuisances des chantiers de construction. Le suivi des niveaux
+              pendant les travaux relève du monitoring acoustique de chantier.
+              <a class="xp-link" href="#mesures">Voir le monitoring de chantier</a>
+            </p>
+          </div>
+        </details>
+      </li>
+
+    </ol>
+  </div>
+</section>
+
+
+<!-- ==================== MESURES &amp; ESSAIS ==================== -->
+<section id="mesures" aria-labelledby="xp-mesures-title">
+  <div class="wrap">
+
+    <header class="xp-head">
+      <div class="xp-head__lead">
+        <p class="eyebrow reveal">Mesures &amp; essais</p>
+        <h2 class="xp-head__title reveal" id="xp-mesures-title" style="--d:.06s">
+          Tout part de la <i class="serif-it">mesure</i>
+        </h2>
+      </div>
+      <div class="xp-head__aside">
+        <p class="xp-count reveal" style="--d:.1s">05 moyens d'acquisition</p>
+        <p class="lede reveal" style="--d:.14s">
+          Nos études s'appuient systématiquement sur la mesure. Nos équipes sont formées à
+          l'ensemble des acquisitions de données, réalisées suivant les normes en vigueur,
+          et disposent des moyens matériels nécessaires à tous types de mesures acoustiques
+          et vibratoires.
+        </p>
+      </div>
+    </header>
+
+    <ol class="xp-list">
+
+      <li class="xp-item reveal" style="--d:.04s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">01</span>
+            <h3 class="xp-row__title">Mesures de bruit</h3>
+            <span class="xp-row__desc">Tous types de mesures acoustiques, réalisées suivant les normes en vigueur.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Nos techniciens et ingénieurs sont formés à l'ensemble des acquisitions de
+              données et disposent des moyens matériels nécessaires à tous types de mesures
+              acoustiques, réalisées suivant les normes en vigueur.
+            </p>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.09s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">02</span>
+            <h3 class="xp-row__title">Mesures vibratoires</h3>
+            <span class="xp-row__desc">Du repérage géologique à la confrontation aux seuils de dommage et de perception.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Analyse des cartes géologiques, identification du bâti, implantation des points
+              de mesure, analyse des données, puis confrontation des niveaux mesurés aux
+              seuils de dommage et aux seuils de perception.
+            </p>
+            <ul class="xp-tags">
+              <li>Cartes géologiques</li>
+              <li>Identification du bâti</li>
+              <li>Implantation des points</li>
+              <li>Seuils de dommage</li>
+              <li>Seuils de perception</li>
+            </ul>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.14s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">03</span>
+            <h3 class="xp-row__title">Mesures de bruit ferroviaires</h3>
+            <span class="xp-row__desc">Constats à tous les stades du projet, de l'étude initiale à la réception.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Constats vibratoires pour les projets d'infrastructures routières ou
+              ferroviaires, à tous les stades du projet, de l'étude initiale à la phase de
+              contrôle et de réception après travaux.
+            </p>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.19s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">04</span>
+            <h3 class="xp-row__title">Essais sur ouvrages de protections acoustiques</h3>
+            <span class="xp-row__desc">Vérification in situ de l'efficacité acoustique réelle de l'ouvrage en place.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Notre matériel dédié, basé à l'agence de Lyon, nous permet d'intervenir sur
+              l'ensemble du territoire. Les essais sont réalisés selon les normes NF EN 1793-5
+              et NF EN 1793-6 en domaine routier, NF EN 16272-5 et NF EN 16272-6 en domaine
+              ferroviaire. Ils valident l'efficacité acoustique réelle de l'ouvrage en place.
+            </p>
+          </div>
+        </details>
+      </li>
+
+      <li class="xp-item reveal" style="--d:.24s">
+        <details class="xp-row">
+          <summary class="xp-row__sum">
+            <span class="xp-row__idx" aria-hidden="true">05</span>
+            <h3 class="xp-row__title">Mesures de bruit de chantier</h3>
+            <span class="xp-row__desc">Monitoring acoustique de chantier, en continu et sur toute la durée des travaux.</span>
+            <span class="xp-row__ico" aria-hidden="true"></span>
+          </summary>
+          <div class="xp-row__body">
+            <p class="small">
+              Monitoring acoustique de chantier&nbsp;: acquisition des niveaux sonores
+              pendant la phase travaux, en appui de la surveillance de chantier.
+              <a class="xp-link" href="#expertise">Voir la surveillance de chantier</a>
+            </p>
+          </div>
+        </details>
+      </li>
+
+    </ol>
+
+    <!-- Référentiels d'essai — normes appliquées, PAS une accréditation -->
+    <div class="xp-norms reveal">
+      <p class="xp-norms__label">Référentiels d'essai</p>
+      <div class="xp-norms__body">
+        <p class="xp-norms__lead">
+          Essais sur ouvrages de protections acoustiques réalisés selon les normes
+        </p>
+        <ul class="xp-normlist">
+          <li class="xp-norm"><span class="xp-norm__code">NF EN 1793-5</span><span class="xp-norm__dom">Routier</span></li>
+          <li class="xp-norm"><span class="xp-norm__code">NF EN 1793-6</span><span class="xp-norm__dom">Routier</span></li>
+          <li class="xp-norm"><span class="xp-norm__code">NF EN 16272-5</span><span class="xp-norm__dom">Ferroviaire</span></li>
+          <li class="xp-norm"><span class="xp-norm__code">NF EN 16272-6</span><span class="xp-norm__dom">Ferroviaire</span></li>
+        </ul>
+        <p class="xp-norms__note">
+          Ces normes désignent les référentiels d'essai que nous appliquons&nbsp;; elles ne
+          constituent pas une accréditation.
+        </p>
+      </div>
+    </div>
+
+    <div class="xp-cta reveal" style="--d:.08s">
+      <a class="btn" href="#contact">Planifier une campagne de mesures
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
+      </a>
+      <p class="xp-cta__note">Matériel d'essai basé à Lyon · Intervention sur toute la France</p>
+    </div>
+
+  </div>
+</section>
+
+<!--
+  ============================================================================
+  PARTS — méthode / air & santé / références        prefix: md-
+  ----------------------------------------------------------------------------
+  PLACEHOLDER TOKENS TO FILL BEFORE GOING LIVE (nothing invented):
+    {{PERIODE_TRAMWAY_MARSEILLE}}   période d'intervention — tramway de Marseille
+    {{PERIODE_ECRANS_RHONE}}        période — 27 écrans acoustiques, vallée du Rhône
+    {{ANNEE_ZAC_SIX_ROUTES}}        année — ZAC des Six Routes, La Courneuve
+    {{DOMAINE_CANET}}               domaine — opération « Reconstitution Canet »
+  ----------------------------------------------------------------------------
+  Requires : parts/methode.css  +  parts/methode.js (stepper, optional)
+  ============================================================================
+-->
+
+<!-- ============================ MÉTHODE ============================ -->
+<section id="methode" class="md-methode">
+  <div class="wrap md-methode__in">
+
+    <div class="md-methode__aside">
+      <div class="md-methode__sticky">
+        <p class="eyebrow reveal">Méthode</p>
+        <h2 class="reveal" style="--d:.06s">De l'état initial<br>à la <span class="serif-it">réception</span></h2>
+        <p class="small reveal md-methode__intro" style="--d:.12s">
+          Cinq étapes, une même équipe, du premier relevé jusqu'à la vérification
+          de l'ouvrage après travaux.
+        </p>
+
+        <div class="md-count reveal" style="--d:.18s" aria-hidden="true">
+          <span class="md-count__stack">
+            <span class="md-count__n md-on">01</span>
+            <span class="md-count__n">02</span>
+            <span class="md-count__n">03</span>
+            <span class="md-count__n">04</span>
+            <span class="md-count__n">05</span>
+          </span>
+          <span class="md-count__tot">/&nbsp;05</span>
+        </div>
+
+        <div class="md-prog" aria-hidden="true"><span class="md-prog__bar"></span></div>
+      </div>
+    </div>
+
+    <ol class="md-steps">
+      <li class="md-step reveal">
+        <span class="md-step__k" aria-hidden="true">01</span>
+        <div class="md-step__body">
+          <h3 class="md-step__t">Diagnostic</h3>
+          <p class="md-step__d">
+            État initial du site&nbsp;: analyse de l'environnement sonore existant,
+            des cartes géologiques et du bâti concerné.
+          </p>
+        </div>
+      </li>
+      <li class="md-step reveal">
+        <span class="md-step__k" aria-hidden="true">02</span>
+        <div class="md-step__body">
+          <h3 class="md-step__t">Mesures</h3>
+          <p class="md-step__d">
+            Campagne sur site suivant les normes en vigueur&nbsp;: implantation
+            des points de mesure, acquisition acoustique et vibratoire.
+          </p>
+        </div>
+      </li>
+      <li class="md-step reveal">
+        <span class="md-step__k" aria-hidden="true">03</span>
+        <div class="md-step__body">
+          <h3 class="md-step__t">Modélisation</h3>
+          <p class="md-step__d">
+            Prévision des niveaux de bruit et de vibrations par simulation,
+            test des scénarios d'aménagement et de leurs variantes.
+          </p>
+        </div>
+      </li>
+      <li class="md-step reveal">
+        <span class="md-step__k" aria-hidden="true">04</span>
+        <div class="md-step__body">
+          <h3 class="md-step__t">Prescription</h3>
+          <p class="md-step__d">
+            Dimensionnement des protections et recherche des solutions les plus
+            performantes, puis rédaction du dossier réglementaire destiné aux
+            services instructeurs.
+          </p>
+        </div>
+      </li>
+      <li class="md-step reveal">
+        <span class="md-step__k" aria-hidden="true">05</span>
+        <div class="md-step__body">
+          <h3 class="md-step__t">Réception</h3>
+          <p class="md-step__d">
+            Vérification in situ après travaux&nbsp;: essais de contrôle et
+            validation de l'efficacité réelle de l'ouvrage.
+          </p>
+        </div>
+      </li>
+    </ol>
+
+  </div>
+</section>
+
+<!-- ============================ AIR &amp; SANTÉ ============================ -->
+<section id="air" class="md-air">
+  <div class="md-air__wash" aria-hidden="true"></div>
+  <div class="wrap md-air__in">
+
+    <header class="md-head">
+      <p class="eyebrow reveal">Air &amp; Santé — CIA Air</p>
+      <h2 class="reveal md-air__h" style="--d:.06s">
+        Le second volet de <span class="serif-it">l'étude d'impact</span>
+      </h2>
+      <p class="lede reveal" style="--d:.12s">
+        Avec CIA Air, nous traitons le volet Air et Santé de vos études
+        d'impact&nbsp;: mesures de polluants atmosphériques, calcul des émissions
+        liées au trafic routier, simulations de dispersion, évaluation de
+        l'impact sanitaire par l'Indice Pollution Population et l'évaluation
+        quantitative des risques sanitaires.
+      </p>
+    </header>
+
+    <ul class="md-offers">
+      <li class="md-offer reveal" style="--d:.04s">
+        <span class="md-offer__k" aria-hidden="true">01</span>
+        <h3 class="md-offer__t">Étude air et santé</h3>
+        <p class="md-offer__d">
+          Mesures de polluants atmosphériques gazeux et particulaires, calcul des
+          émissions liées au trafic routier, simulations de dispersion
+          atmosphérique, évaluation de l'impact sanitaire — Indice Pollution
+          Population (IPP) et évaluation quantitative des risques sanitaires
+          (ERS&nbsp;/&nbsp;EQRS).
+        </p>
+      </li>
+      <li class="md-offer reveal" style="--d:.1s">
+        <span class="md-offer__k" aria-hidden="true">02</span>
+        <h3 class="md-offer__t">Bilan carbone &amp; GES</h3>
+        <p class="md-offer__d">
+          Définition des émissions de gaz à effet de serre, bilans carbone
+          d'opérations d'aménagement complexes et de projets de construction.
+        </p>
+      </li>
+      <li class="md-offer reveal" style="--d:.16s">
+        <span class="md-offer__k" aria-hidden="true">03</span>
+        <h3 class="md-offer__t">Modélisation</h3>
+        <p class="md-offer__d">
+          Prévision de la qualité de l'air et calcul du bilan carbone d'un projet,
+          à l'échelle de l'opération comme du territoire.
+        </p>
+      </li>
+      <li class="md-offer reveal" style="--d:.22s">
+        <span class="md-offer__k" aria-hidden="true">04</span>
+        <h3 class="md-offer__t">Mesures</h3>
+        <p class="md-offer__d">
+          Mesures passives et actives de la qualité de l'air, en phase état
+          initial comme en suivi d'exploitation.
+        </p>
+      </li>
+    </ul>
+
+    <div class="md-air__claim reveal">
+      <p class="md-quote">
+        <span class="md-quote__mark" aria-hidden="true">«</span>
+        Volet acoustique et volet air et santé, réalisés par les mêmes équipes,
+        dans un dossier cohérent et recevable.
+        <span class="md-quote__mark" aria-hidden="true">»</span>
+      </p>
+      <p class="small md-air__note">
+        Un seul bureau d'études, une seule interlocution, un calendrier commun&nbsp;:
+        les deux volets réglementaires de votre dossier sont instruits ensemble.
+      </p>
+      <div class="md-air__cta">
+        <a class="btn md-btn--ember" href="#contact">Parler de votre dossier
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
+        </a>
+        <a class="btn" href="https://www.cia-air.fr/" target="_blank" rel="noopener">
+          Découvrir CIA Air
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 10L13 3M13 3H8.5M13 3v4.5"/><path d="M12 9.5V13H3V4h3.5"/></svg>
+          <span class="md-vh">(nouvelle fenêtre)</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ RÉFÉRENCES ============================ -->
+<section id="references" class="md-refs">
+  <div class="wrap">
+
+    <header class="md-head md-head--refs">
+      <p class="eyebrow reveal">Nos réalisations</p>
+      <h2 class="reveal" style="--d:.06s">Des infrastructures,<br>du relevé à la <span class="serif-it">réception</span></h2>
+      <p class="lede reveal" style="--d:.12s">
+        Trois lignes de tramway à Marseille, vingt-sept écrans acoustiques dans
+        la vallée du Rhône, l'isolation de façades de logements pour SNCF Réseau
+        depuis 2022&nbsp;: nos interventions accompagnent les grands projets
+        d'infrastructure sur toute la France.
+      </p>
+    </header>
+
+    <ul class="md-figs reveal" style="--d:.16s">
+      <li class="md-fig"><span class="md-fig__n">3</span><span class="md-fig__l">lignes de tramway, Marseille</span></li>
+      <li class="md-fig"><span class="md-fig__n">27</span><span class="md-fig__l">écrans acoustiques, vallée du Rhône</span></li>
+      <li class="md-fig"><span class="md-fig__n">2008</span><span class="md-fig__l">premiers aménagements ferroviaires au nord de Toulouse</span></li>
+    </ul>
+
+    <div class="md-tblwrap reveal" style="--d:.2s">
+      <table class="md-tbl" role="table">
+        <caption class="md-vh">Sélection de réalisations : période, projet, domaine et prestation</caption>
+        <thead role="rowgroup">
+          <tr class="md-tbl__head" role="row">
+            <th scope="col" role="columnheader">Période</th>
+            <th scope="col" role="columnheader">Projet</th>
+            <th scope="col" role="columnheader">Domaine</th>
+            <th scope="col" role="columnheader">Prestation</th>
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          <tr role="row">
+            <td role="cell" data-l="Période" class="md-tbl__y">{{PERIODE_TRAMWAY_MARSEILLE}}</td>
+            <td role="cell" data-l="Projet" class="md-tbl__p">Tramway de Marseille</td>
+            <td role="cell" data-l="Domaine" class="md-tbl__dm">Ferroviaire urbain</td>
+            <td role="cell" data-l="Prestation" class="md-tbl__s">Création de trois lignes de tramway</td>
+          </tr>
+          <tr role="row">
+            <td role="cell" data-l="Période" class="md-tbl__y">{{PERIODE_ECRANS_RHONE}}</td>
+            <td role="cell" data-l="Projet" class="md-tbl__p">Vallée du Rhône</td>
+            <td role="cell" data-l="Domaine" class="md-tbl__dm">Ferroviaire</td>
+            <td role="cell" data-l="Prestation" class="md-tbl__s">Réalisation de 27 écrans acoustiques sur voies ferrées</td>
+          </tr>
+          <tr role="row">
+            <td role="cell" data-l="Période" class="md-tbl__y">Depuis 2022</td>
+            <td role="cell" data-l="Projet" class="md-tbl__p">SNCF Réseau — isolation de façades</td>
+            <td role="cell" data-l="Domaine" class="md-tbl__dm">Bâti riverain</td>
+            <td role="cell" data-l="Prestation" class="md-tbl__s">Isolation acoustique de façades de logements</td>
+          </tr>
+          <tr role="row">
+            <td role="cell" data-l="Période" class="md-tbl__y">Depuis 2008</td>
+            <td role="cell" data-l="Projet" class="md-tbl__p">Nord de Toulouse — SNCF Réseau</td>
+            <td role="cell" data-l="Domaine" class="md-tbl__dm">Ferroviaire</td>
+            <td role="cell" data-l="Prestation" class="md-tbl__s">Projets d'aménagements ferroviaires</td>
+          </tr>
+          <tr role="row">
+            <td role="cell" data-l="Période" class="md-tbl__y">{{ANNEE_ZAC_SIX_ROUTES}}</td>
+            <td role="cell" data-l="Projet" class="md-tbl__p">ZAC des Six Routes, La Courneuve</td>
+            <td role="cell" data-l="Domaine" class="md-tbl__dm">Aménagement urbain</td>
+            <td role="cell" data-l="Prestation" class="md-tbl__s">Bilan des émissions de gaz à effet de serre</td>
+          </tr>
+          <tr role="row">
+            <td role="cell" data-l="Période" class="md-tbl__y">2023</td>
+            <td role="cell" data-l="Projet" class="md-tbl__p">Reconstitution Canet</td>
+            <td role="cell" data-l="Domaine" class="md-tbl__dm">{{DOMAINE_CANET}}</td>
+            <td role="cell" data-l="Prestation" class="md-tbl__s">Bilan carbone</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="small md-refs__foot reveal">
+      D'autres références sont disponibles sur demande, par domaine d'intervention
+      ou par type de prestation.
+    </p>
+
+  </div>
+</section>
+
 
 <!-- ============================ CONTACT ============================ -->
 <section class="ct" id="contact">
@@ -680,6 +2355,240 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
       }
     }
   }
+})();
+
+/* ===== manifeste ===== */
+/* ============================================================
+   PART: manifeste.js — #manifeste (pinned beats) + #preuves (counters)
+   Plain ES5 IIFE. No libraries. Native scroll only — nothing is hijacked.
+   Both behaviours are no-ops under prefers-reduced-motion.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var reduce = mq ? mq.matches : false;
+  var hasIO = 'IntersectionObserver' in window;
+
+  function list(sel, root) {
+    var n = (root || document).querySelectorAll(sel), a = [], i;
+    for (i = 0; i < n.length; i++) { a.push(n[i]); }
+    return a;
+  }
+  function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+  function pad(v, len) {
+    var s = String(v);
+    while (s.length < len) { s = '0' + s; }
+    return s;
+  }
+
+  /* ==========================================================
+     1 — PINNED MANIFESTO
+     ========================================================== */
+  (function pinnedManifesto() {
+    var act = document.getElementById('manifeste');
+    if (!act) { return; }
+
+    var track = act.querySelector('[data-mf-track]');
+    var stage = act.querySelector('.mf-stage');
+    var lines = list('.mf-line', act);
+    var current = act.querySelector('[data-mf-current]');
+    var fill = act.querySelector('[data-mf-fill]');
+    if (!track || !stage || lines.length === 0) { return; }
+
+    var beats = lines.length;
+    var active = -1;
+    var ticking = false;
+    var live = false;
+    var inView = !hasIO;
+    var io = null;
+
+    function paint(idx) {
+      if (idx === active) { return; }
+      active = idx;
+      for (var i = 0; i < beats; i++) {
+        var el = lines[i];
+        el.classList.toggle('is-on', i === idx);
+        el.classList.toggle('is-past', i < idx);
+      }
+      if (current) { current.textContent = pad(idx + 1, 2); }
+    }
+
+    function measure() {
+      var rect = track.getBoundingClientRect();
+      var span = track.offsetHeight - window.innerHeight;
+      var p = span > 0 ? clamp01(-rect.top / span) : (rect.top <= 0 ? 1 : 0);
+      var idx = Math.floor(p * beats);
+      if (idx > beats - 1) { idx = beats - 1; }
+      if (idx < 0) { idx = 0; }
+      if (fill) { stage.style.setProperty('--mf-p', p.toFixed(4)); }
+      paint(idx);
+      ticking = false;
+    }
+
+    function request() {
+      if (ticking || !live || !inView) { return; }
+      ticking = true;
+      window.requestAnimationFrame(measure);
+    }
+
+    function enable() {
+      if (act.classList.contains('is-pinned')) { return; }
+      act.classList.add('is-pinned');
+      live = true;
+      window.addEventListener('scroll', request, { passive: true });
+      window.addEventListener('resize', request);
+
+      /* Only observe/paint while the act is on screen — the first beat then
+         wipes in as the stage arrives instead of being pre-revealed. */
+      if (hasIO && !io) {
+        io = new IntersectionObserver(function (entries) {
+          inView = entries[0].isIntersecting;
+          if (inView) { request(); }
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0 });
+        io.observe(track);
+      } else {
+        inView = true;
+        request();
+      }
+    }
+
+    function disable() {
+      if (!act.classList.contains('is-pinned')) { return; }
+      live = false;
+      window.removeEventListener('scroll', request);
+      window.removeEventListener('resize', request);
+      act.classList.remove('is-pinned');
+      stage.style.removeProperty('--mf-p');
+      for (var i = 0; i < beats; i++) {
+        lines[i].classList.remove('is-on');
+        lines[i].classList.remove('is-past');
+      }
+      active = -1;
+    }
+
+    if (!reduce) { enable(); }
+
+    if (mq) {
+      var onPref = function () {
+        reduce = mq.matches;
+        if (reduce) { disable(); } else { enable(); }
+      };
+      if (mq.addEventListener) { mq.addEventListener('change', onPref); }
+      else if (mq.addListener) { mq.addListener(onPref); }
+    }
+  }());
+
+  /* ==========================================================
+     2 — STAT COUNTERS  (0 → target, 1800ms, ease-out-expo, once)
+     ========================================================== */
+  (function counters() {
+    var nums = list('[data-mf-count]');
+    if (nums.length === 0) { return; }
+    if (reduce || !hasIO || !window.requestAnimationFrame) { return; } /* final values already in the HTML */
+
+    var DUR = 1800;
+    var i;
+
+    function run(el) {
+      var target = parseInt(el.getAttribute('data-mf-count'), 10);
+      if (isNaN(target)) { return; }
+      var len = String(target).length;
+      var start = null;
+
+      function step(now) {
+        if (start === null) { start = now; }
+        var t = clamp01((now - start) / DUR);
+        var e = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+        el.textContent = pad(Math.round(target * e), len);
+        if (t < 1) { window.requestAnimationFrame(step); }
+        else { el.textContent = String(target); }
+      }
+      window.requestAnimationFrame(step);
+    }
+
+    var io = new IntersectionObserver(function (entries) {
+      for (var k = 0; k < entries.length; k++) {
+        if (entries[k].isIntersecting) {
+          io.unobserve(entries[k].target);
+          run(entries[k].target);
+        }
+      }
+    }, { rootMargin: '0px 0px -40% 0px', threshold: 0 });
+
+    for (i = 0; i < nums.length; i++) {
+      nums[i].textContent = pad(0, String(nums[i].getAttribute('data-mf-count')).length);
+      io.observe(nums[i]);
+    }
+  }());
+
+}());
+
+/* ===== methode ===== */
+/* ============================================================
+   PARTS — méthode : pinned stepper (prefix md-)
+   Native scroll only. IntersectionObserver drives the active
+   step, the crossfading numeral and the progress hairline.
+   No-JS / reduced-motion : every step stays at full contrast.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var root = document.getElementById('methode');
+  if (!root) return;
+
+  var reduce = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !('IntersectionObserver' in window)) return;
+
+  var steps = root.querySelectorAll('.md-step');
+  var nums = root.querySelectorAll('.md-count__n');
+  var prog = root.querySelector('.md-prog');
+  var n = steps.length;
+  if (!n) return;
+
+  /* only now do we allow the CSS to dim inactive steps */
+  root.className += ' md-js';
+
+  var visible = [];
+  var current = -1;
+  var i;
+  for (i = 0; i < n; i++) visible.push(false);
+
+  function activate(idx) {
+    if (idx === current || idx < 0 || idx >= n) return;
+    current = idx;
+    for (var k = 0; k < n; k++) {
+      if (k === idx) {
+        if (steps[k].className.indexOf(' md-on') < 0) steps[k].className += ' md-on';
+        if (nums[k] && nums[k].className.indexOf('md-on') < 0) nums[k].className += ' md-on';
+      } else {
+        steps[k].className = steps[k].className.replace(/\s*md-on/g, '');
+        if (nums[k]) nums[k].className = nums[k].className.replace(/\s*md-on/g, '');
+      }
+    }
+    if (prog && prog.style.setProperty) {
+      prog.style.setProperty('--md-p', ((idx + 1) / n).toFixed(3));
+    }
+  }
+
+  var io = new IntersectionObserver(function (entries) {
+    var e, idx, j;
+    for (j = 0; j < entries.length; j++) {
+      e = entries[j];
+      idx = -1;
+      for (i = 0; i < n; i++) { if (steps[i] === e.target) { idx = i; break; } }
+      if (idx > -1) visible[idx] = e.isIntersecting;
+    }
+    for (i = 0; i < n; i++) {
+      if (visible[i]) { activate(i); return; }
+    }
+    /* nothing in the band (between two steps) : keep the last one */
+  }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+
+  for (i = 0; i < n; i++) io.observe(steps[i]);
+
+  activate(0);
 })();
 </script>
 </body>

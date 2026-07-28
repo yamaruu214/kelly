@@ -1,4 +1,44 @@
 <!DOCTYPE html>
+<!--
+  ============================================================================
+  CIA ACOUSTIQUE — page unique, autonome. Aucune dépendance hors Google Fonts.
+
+  À RENSEIGNER AVANT MISE EN LIGNE
+  Chaque valeur ci-dessous n'a pas pu être confirmée et apparaît telle quelle
+  dans la page. Aucun numéro, adresse ou référence n'a été inventé.
+
+    {{FORM_ENDPOINT}}    URL de traitement du formulaire. Tant qu'elle contient
+                         « {{ », le formulaire valide la saisie puis refuse
+                         d'envoyer, en affichant un message explicite.
+    {{TEL_SIEGE}}        Aix-en-Provence (siège)
+    {{TEL_MARSEILLE}}    Marseille
+    {{TEL_LYON}}         Lyon
+    {{TEL_PARIS}}        Paris
+    {{TEL_TOULON}}       Toulon
+    {{ADRESSE_PARIS}}    adresse postale Paris
+    {{ADRESSE_TOULON}}   adresse postale Toulon
+    {{PERIODE_TRAMWAY}}  période d'intervention — tramway de Marseille
+    {{PERIODE_ECRANS}}   période — 27 écrans acoustiques, vallée du Rhône
+    {{ANNEE_ZAC}}        année — ZAC des Six Routes, La Courneuve
+    {{DOMAINE_CANET}}    domaine — opération « Reconstitution Canet »
+
+  POINTS À VALIDER
+    - Trois numéros de téléphone contradictoires circulent dans les annuaires,
+      dont un indicatif 04 91 (Marseille) rattaché à l'adresse d'Aix. Aucun
+      n'est publié ici.
+    - L'adresse parisienne indexée (« Cours du Marché St Antoine ») ne
+      correspond à aucune voie connue du 75012 : à vérifier.
+    - Toulon apparaît comme implantation sans adresse : agence ou présence
+      projet ?
+    - Aucune certification (Qualibat, ISO, COFRAC) n'est revendiquée, faute de
+      preuve. Les normes NF EN 1793-5/6 et 16272-5/6 sont présentées comme des
+      référentiels d'essai appliqués, jamais comme une accréditation.
+    - Aucun effectif n'est affiché : la tranche 10–19 du registre est datée.
+
+  Sources retenues : GIAC, registre (SIREN 447 518 937), pages indexées du
+  site et dossiers publics (DREAL PACA, ZAC des Six Routes, Canet).
+  ============================================================================
+-->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -286,8 +326,9 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 .ct::before{content:'';position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(120% 80% at 50% 100%,rgba(111,227,255,.09),transparent 65%)}
 .ct .wrap{position:relative;z-index:1}
-.ct__head{max-width:22ch;margin-bottom:clamp(40px,5vw,68px)}
-.ct__head h2{margin-block:18px 20px}
+.ct__head{margin-bottom:clamp(40px,5vw,68px)}
+.ct__head h2{max-width:16ch;margin-block:18px 20px}
+.ct__head .lede{max-width:46ch}
 .ct__grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(36px,5vw,86px);align-items:start}
 @media (max-width:900px){.ct__grid{grid-template-columns:1fr;gap:52px}}
 
@@ -974,7 +1015,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 }
 
 /* --- shared: section header block --------------------------- */
-.md-head{max-width:min(100%,940px)}
+.md-head{max-width:min(100%,940px);margin-bottom:clamp(44px,6vw,84px)}
 .md-head h2{margin-block:clamp(18px,2.4vw,30px) clamp(18px,2vw,26px)}
 
 /* ============================================================
@@ -1788,9 +1829,9 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   PARTS — méthode / air & santé / références        prefix: md-
   ----------------------------------------------------------------------------
   PLACEHOLDER TOKENS TO FILL BEFORE GOING LIVE (nothing invented):
-    {{PERIODE_TRAMWAY_MARSEILLE}}   période d'intervention — tramway de Marseille
-    {{PERIODE_ECRANS_RHONE}}        période — 27 écrans acoustiques, vallée du Rhône
-    {{ANNEE_ZAC_SIX_ROUTES}}        année — ZAC des Six Routes, La Courneuve
+    {{PERIODE_TRAMWAY}}   période d'intervention — tramway de Marseille
+    {{PERIODE_ECRANS}}        période — 27 écrans acoustiques, vallée du Rhône
+    {{ANNEE_ZAC}}        année — ZAC des Six Routes, La Courneuve
     {{DOMAINE_CANET}}               domaine — opération « Reconstitution Canet »
   ----------------------------------------------------------------------------
   Requires : parts/methode.css  +  parts/methode.js (stepper, optional)
@@ -1993,13 +2034,13 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
         </thead>
         <tbody>
           <tr>
-            <td data-l="Période" class="md-tbl__y">{{PERIODE_TRAMWAY_MARSEILLE}}</td>
+            <td data-l="Période" class="md-tbl__y">{{PERIODE_TRAMWAY}}</td>
             <td data-l="Projet" class="md-tbl__p">Tramway de Marseille</td>
             <td data-l="Domaine" class="md-tbl__dm">Ferroviaire urbain</td>
             <td data-l="Prestation" class="md-tbl__s">Création de trois lignes de tramway</td>
           </tr>
           <tr>
-            <td data-l="Période" class="md-tbl__y">{{PERIODE_ECRANS_RHONE}}</td>
+            <td data-l="Période" class="md-tbl__y">{{PERIODE_ECRANS}}</td>
             <td data-l="Projet" class="md-tbl__p">Vallée du Rhône</td>
             <td data-l="Domaine" class="md-tbl__dm">Ferroviaire</td>
             <td data-l="Prestation" class="md-tbl__s">Réalisation de 27 écrans acoustiques sur voies ferrées</td>
@@ -2017,7 +2058,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
             <td data-l="Prestation" class="md-tbl__s">Projets d'aménagements ferroviaires</td>
           </tr>
           <tr>
-            <td data-l="Période" class="md-tbl__y">{{ANNEE_ZAC_SIX_ROUTES}}</td>
+            <td data-l="Période" class="md-tbl__y">{{ANNEE_ZAC}}</td>
             <td data-l="Projet" class="md-tbl__p">ZAC des Six Routes, La Courneuve</td>
             <td data-l="Domaine" class="md-tbl__dm">Aménagement urbain</td>
             <td data-l="Prestation" class="md-tbl__s">Bilan des émissions de gaz à effet de serre</td>

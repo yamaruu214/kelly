@@ -98,6 +98,8 @@
                          .filter(Boolean).join('\n\n---\n\n');
     console.error(e);
   }
+  // The game module reports mid-session fatals (a lost GPU context) here too.
+  window.__fpsFail = fail;
   window.addEventListener('error', ev => fail(ev.error || ev.message));
   window.addEventListener('unhandledrejection', ev => fail(ev.reason));
   try {

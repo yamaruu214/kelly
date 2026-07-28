@@ -103,7 +103,26 @@ export function detectTier(gl) {
   return TIER.MED;
 }
 
-export function presetFor(tier) { return { ...PRESETS[tier] }; }
+/** Bytes of GPU memory the material library costs at a given texture size. */
+export function textureBudgetMB(size, materials = 10, mapsPer = 3) {
+  // RGBA8, plus a third again for the mip chain.
+  return (size * size * 4 * materials * mapsPer * 1.34) / (1024 * 1024);
+}
+
+export function presetFor(tier) {
+  const preset = { ...PRESETS[tier] };
+
+  // The library uploads three maps for each of ten materials, so texture size
+  // costs memory quadratically: 1024 is ~167MB, which mid-range Android
+  // drivers answer by killing the WebGL context outright a few frames in.
+  // These are tiling noise textures sampled at world scale, so halving the
+  // size costs far less visually than it saves. Desktop keeps the full size.
+  if (device.mobile) {
+    const cap = device.iOS && device.memory >= 6 ? 768 : 512;
+    preset.textureSize = Math.min(preset.textureSize, cap);
+  }
+  return preset;
+}
 
 /**
  * Rolling frame-time monitor that nudges render scale to hold a target FPS.

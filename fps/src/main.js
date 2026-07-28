@@ -34,6 +34,12 @@ import { TouchControls } from './ui/Touch.js';
 const FIXED_DT = 1 / 120;          // simulation step; render is decoupled
 const MAX_SUBSTEPS = 6;
 
+/** Routes a fatal error to the shell's failure screen, defined in index.html. */
+function fatal(err) {
+  if (typeof window.__fpsFail === 'function') window.__fpsFail(err);
+  else console.error(err);
+}
+
 /** Error carrying a message meant for the player rather than a stack trace. */
 export class StartupError extends Error {
   constructor(userMessage, detail) {
@@ -118,6 +124,14 @@ export class Game {
 
     const gl = renderer.getContext();
     this.tier = detectTier(gl);
+
+    // A previous run that died of graphics-memory exhaustion leaves a cap
+    // behind, so the retry comes back cheaper instead of repeating the crash.
+    try {
+      const cap = parseInt(localStorage.getItem('blacksite.tierCap'), 10);
+      if (Number.isFinite(cap)) this.tier = Math.min(this.tier, cap);
+    } catch { /* storage unavailable; run at the detected tier */ }
+
     this.settings = presetFor(this.tier);
     this.settings.maxAnisotropy = Math.min(
       this.settings.anisotropy, renderer.capabilities.getMaxAnisotropy());
@@ -130,10 +144,25 @@ export class Game {
     renderer.setClearColor(0x0a0d10, 1);
     renderer.info.autoReset = false;
 
+    // preventDefault is what makes the context restorable at all; without it
+    // the browser never fires contextrestored. Everything on the GPU is gone
+    // either way, so the frame loop has to stop before it touches a dead
+    // context and buries the real cause under a spray of INVALID_OPERATION.
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
       this.contextLost = true;
-      this.hud?.showBanner('GRAPHICS CONTEXT LOST — RELOAD');
+      cancelAnimationFrame(this.rafId);
+      this.audio?.stopAll?.();
+      fatal(new StartupError(
+        'Your device ran out of graphics memory and the 3D context was lost.\n\n' +
+        'Reloading will restart at a lower quality level.',
+        e));
+      // The tier is persisted so the reload comes back cheaper rather than
+      // failing the same way again.
+      try {
+        const next = Math.max(TIER.LOW, this.tier - 1);
+        localStorage.setItem('blacksite.tierCap', String(next));
+      } catch { /* private mode — the reload just retries at the same tier */ }
     });
 
     onProgress?.(0.08, 'GPU: ' + this.settings.name);

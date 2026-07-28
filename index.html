@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#08090a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    DESIGN SYSTEM
@@ -16,35 +16,43 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
-  --bg:#08090a;
-  --bg-2:#101113;
-  --bg-3:#17191c;
+  --bg:#05060a;
+  --bg-2:#0b0d14;
+  --bg-3:#151922;
   --ink:#f4f2ed;
-  --ink-2:#a8a49c;
-  --ink-3:#6c6a66;
-  --accent:#c9f24d;
-  --accent-dim:rgba(201,242,77,.14);
-  --line:rgba(244,242,237,.10);
-  --line-2:rgba(244,242,237,.18);
+  --ink-2:#a9aab2;
+  --ink-3:#5a5d68;
+  --accent:#6fe3ff;
+  --accent-deep:#1c7f9e;
+  --accent-dim:rgba(111,227,255,.12);
+  --ember:#ff5b1f;
+  --ash:#6e6a63;
+  --line:rgba(244,242,237,.12);
+  --line-2:rgba(244,242,237,.22);
 
+  --display:'Archivo',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
   --serif:'Instrument Serif',Georgia,'Times New Roman',serif;
-  --sans:'Inter Tight',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  --sans:var(--display);
   --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
 
-  --gutter:clamp(20px,5vw,64px);
-  --maxw:1320px;
+  --gutter:clamp(20px,5vw,80px);
+  --maxw:1400px;
   --ease:cubic-bezier(.16,1,.3,1);
+  --ease-quart:cubic-bezier(.25,1,.5,1);
+  --dur-fast:280ms;
+  --dur-base:600ms;
+  --dur-slow:900ms;
 }
 
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 body{
   background:var(--bg);
   color:var(--ink);
-  font-family:var(--sans);
-  font-weight:300;
-  font-size:clamp(15px,1.05vw,17px);
+  font-family:var(--display);
+  font-weight:400;
+  font-size:clamp(15px,1.05vw,17.5px);
   line-height:1.65;
-  letter-spacing:-.005em;
+  letter-spacing:-.003em;
   overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
@@ -55,14 +63,41 @@ a{color:inherit;text-decoration:none}
 
 /* --- grain ------------------------------------------------- */
 .grain{
-  position:fixed;inset:-50%;z-index:9999;pointer-events:none;opacity:.035;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
-  will-change:transform;
+  position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.055;
+  mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain .6s steps(8) infinite;
 }
+@keyframes grain{
+  0%{background-position:0 0}      12.5%{background-position:-40px 20px}
+  25%{background-position:30px -35px} 37.5%{background-position:-25px -20px}
+  50%{background-position:45px 15px}  62.5%{background-position:-15px 40px}
+  75%{background-position:25px 30px}  87.5%{background-position:-35px -10px}
+  100%{background-position:0 0}
+}
+
+/* --- scroll progress rail --- */
+.rail{position:fixed;top:0;right:0;bottom:0;width:2px;z-index:98;background:rgba(244,242,237,.07);pointer-events:none}
+.rail i{display:block;width:100%;height:0;background:var(--accent);transform-origin:top;box-shadow:0 0 12px rgba(111,227,255,.5)}
+@media (max-width:900px){
+  .rail{top:0;left:0;right:0;bottom:auto;width:auto;height:2px}
+  .rail i{height:100%;width:0}
+}
+
+/* --- custom cursor --- */
+.cur,.cur-ring{position:fixed;top:0;left:0;z-index:9998;pointer-events:none;border-radius:50%;
+  transform:translate3d(-50px,-50px,0);will-change:transform}
+.cur{width:6px;height:6px;margin:-3px 0 0 -3px;background:var(--ink)}
+.cur-ring{width:34px;height:34px;margin:-17px 0 0 -17px;border:1px solid var(--accent);
+  transition:width .3s var(--ease-quart),height .3s var(--ease-quart),margin .3s var(--ease-quart),
+             background-color .3s var(--ease-quart),opacity .3s var(--ease-quart)}
+.cur-ring.hot{width:60px;height:60px;margin:-30px 0 0 -30px;background:var(--accent-dim)}
+@media (pointer:coarse),(hover:none){.cur,.cur-ring{display:none}}
 
 /* --- layout ------------------------------------------------ */
 .wrap{width:100%;max-width:var(--maxw);margin-inline:auto;padding-inline:var(--gutter)}
 section{position:relative;padding-block:clamp(88px,12vw,180px)}
+section[id]{scroll-margin-top:88px}
 .rule{height:1px;background:var(--line);border:0}
 
 /* --- typography -------------------------------------------- */
@@ -74,11 +109,12 @@ section{position:relative;padding-block:clamp(88px,12vw,180px)}
 .eyebrow::before{
   content:'';width:22px;height:1px;background:var(--accent);flex:none;opacity:.8;
 }
-h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.025em;line-height:.98}
-h1{font-size:clamp(44px,9.2vw,132px)}
-h2{font-size:clamp(34px,5.6vw,82px);line-height:1.02}
-h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
-.serif-it{font-style:italic;color:var(--accent)}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.03em;line-height:.94;text-wrap:balance}
+h1{font-size:clamp(44px,8.6vw,124px);font-weight:800;font-stretch:112%;letter-spacing:-.038em;line-height:.88}
+h2{font-size:clamp(32px,5.2vw,76px);line-height:.96}
+h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font-weight:600}
+.serif-it{font-family:var(--serif);font-style:italic;font-weight:400;font-stretch:100%;
+  letter-spacing:-.01em;color:var(--accent)}
 .lede{
   font-size:clamp(17px,1.6vw,23px);line-height:1.5;color:var(--ink-2);
   font-weight:300;letter-spacing:-.012em;max-width:62ch;
@@ -91,13 +127,14 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
   display:inline-flex;align-items:center;gap:10px;
   font-family:var(--mono);font-size:11px;font-weight:500;
   text-transform:uppercase;letter-spacing:.16em;
-  padding:15px 26px;border-radius:999px;border:1px solid var(--line-2);
+  padding:16px 28px;border-radius:2px;border:1px solid var(--line-2);
   color:var(--ink);background:transparent;cursor:pointer;
-  transition:background .4s var(--ease),color .4s var(--ease),border-color .4s var(--ease),transform .4s var(--ease);
+  transition:background var(--dur-fast) var(--ease-quart),color var(--dur-fast) var(--ease-quart),
+             border-color var(--dur-fast) var(--ease-quart),transform var(--dur-fast) var(--ease-quart);
 }
-.btn:hover{background:var(--ink);color:var(--bg);border-color:var(--ink);transform:translateY(-2px)}
-.btn--accent{background:var(--accent);color:#0b0d05;border-color:var(--accent)}
-.btn--accent:hover{background:#dcff6b;border-color:#dcff6b;color:#0b0d05}
+.btn:hover{border-color:var(--accent);background:var(--accent-dim);color:var(--ink)}
+.btn--accent{background:var(--accent);color:#04222c;border-color:var(--accent);font-weight:500}
+.btn--accent:hover{background:#8feaff;border-color:#8feaff;color:#04222c;transform:translateY(-2px)}
 .btn svg{width:13px;height:13px;transition:transform .4s var(--ease)}
 .btn:hover svg{transform:translateX(3px)}
 
@@ -115,7 +152,8 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
   .reveal,.mask>span{opacity:1!important;transform:none!important;transition:none!important}
-  .grain{display:none}
+  .grain{animation:none}
+  .cur,.cur-ring{display:none}
   *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
 
@@ -136,8 +174,9 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
   height:var(--hh,84px);transition:height .5s var(--ease);
 }
 .hdr.stuck .hdr__in{--hh:66px}
-.logo{display:flex;align-items:baseline;gap:9px;font-family:var(--serif);font-size:26px;letter-spacing:-.02em;line-height:1}
-.logo b{font-weight:400}
+.logo{display:flex;align-items:baseline;gap:9px;font-family:var(--display);font-size:24px;
+  font-weight:800;font-stretch:112%;letter-spacing:-.04em;line-height:1}
+.logo b{font-weight:800}
 .logo .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);align-self:center;flex:none}
 .logo small{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.2em;color:var(--ink-3)}
 .nav{display:flex;align-items:center;gap:clamp(18px,2.2vw,34px)}
@@ -184,8 +223,8 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
   padding-top:calc(84px + clamp(40px,10vh,110px));padding-bottom:clamp(32px,5vh,56px);overflow:hidden}
 .hero__bg{position:absolute;inset:0;z-index:0;pointer-events:none;
   background:
-    radial-gradient(900px 620px at 78% 8%,rgba(201,242,77,.10),transparent 62%),
-    radial-gradient(760px 560px at 8% 92%,rgba(90,150,255,.06),transparent 60%);}
+    radial-gradient(120% 90% at 50% 0%,rgba(111,227,255,.15),rgba(111,227,255,.03) 38%,transparent 70%),
+    radial-gradient(115% 115% at 50% 50%,transparent 45%,rgba(5,6,10,.78) 100%);}
 .hero .wrap{position:relative;z-index:1;width:100%}
 .hero h1{margin-block:clamp(22px,3.4vw,40px) clamp(26px,3.6vw,44px);max-width:16ch}
 .hero__foot{
@@ -197,7 +236,8 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
 .hero__meta{display:flex;flex-wrap:wrap;gap:clamp(22px,3vw,46px)}
 .hero__meta div{display:flex;flex-direction:column;gap:3px}
 .hero__meta .k{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.2em;color:var(--ink-3)}
-.hero__meta .v{font-family:var(--serif);font-size:clamp(19px,1.7vw,25px);line-height:1.1}
+.hero__meta .v{font-family:var(--display);font-weight:600;font-size:clamp(17px,1.5vw,22px);
+  line-height:1.15;letter-spacing:-.02em}
 
 /* wave */
 .wave{position:absolute;left:0;right:0;bottom:0;height:34vh;min-height:200px;z-index:0;
@@ -234,10 +274,65 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
   font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-3)}
 .ft__bot a:hover{color:var(--ink)}
 @media (max-width:820px){.ft__top{grid-template-columns:1fr;gap:40px}}
+
+/* ============================================================
+   CONTACT
+   ============================================================ */
+.ct{background:var(--bg)}
+.ct::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 80% at 50% 100%,rgba(111,227,255,.09),transparent 65%)}
+.ct .wrap{position:relative;z-index:1}
+.ct__head{max-width:22ch;margin-bottom:clamp(40px,5vw,68px)}
+.ct__head h2{margin-block:18px 20px}
+.ct__grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(36px,5vw,86px);align-items:start}
+@media (max-width:900px){.ct__grid{grid-template-columns:1fr;gap:52px}}
+
+.ct__form{display:flex;flex-direction:column;gap:22px}
+.ct__row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:560px){.ct__row{grid-template-columns:1fr}}
+.ct__f{display:flex;flex-direction:column;gap:8px}
+.ct__f label{font-family:var(--mono);font-size:10px;text-transform:uppercase;
+  letter-spacing:.2em;color:var(--ink-3)}
+.ct__f label .req{color:var(--accent)}
+.ct__f input,.ct__f select,.ct__f textarea{
+  width:100%;background:var(--bg-2);border:1px solid var(--line);border-radius:2px;
+  color:var(--ink);font-family:var(--display);font-size:16px;font-weight:400;
+  padding:15px 16px;outline:none;-webkit-appearance:none;appearance:none;
+  transition:border-color var(--dur-fast) var(--ease-quart),background var(--dur-fast) var(--ease-quart);
+}
+.ct__f textarea{resize:vertical;min-height:132px;line-height:1.6}
+.ct__f select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23a9aab2' stroke-width='1.5'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 16px center;padding-right:42px}
+.ct__f input:focus,.ct__f select:focus,.ct__f textarea:focus{border-color:var(--accent);background:var(--bg-3)}
+.ct__f input::placeholder,.ct__f textarea::placeholder{color:#3d414c}
+.ct__consent{display:flex;gap:12px;align-items:flex-start}
+.ct__consent input{width:17px;height:17px;flex:none;margin-top:3px;accent-color:var(--accent)}
+.ct__consent label{font-family:var(--display);font-size:13px;text-transform:none;
+  letter-spacing:0;color:var(--ink-2);line-height:1.5}
+.ct__note{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-3)}
+.ct__err{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--ember);min-height:0}
+.ct__f.bad input,.ct__f.bad textarea,.ct__f.bad select{border-color:var(--ember)}
+.ct__sent{border:1px solid var(--accent);background:var(--accent-dim);border-radius:2px;
+  padding:18px 20px;font-size:14.5px;color:var(--ink)}
+
+.ct__aside{display:flex;flex-direction:column;gap:30px}
+.ct__agencies{display:flex;flex-direction:column}
+.ct__ag{padding:22px 0;border-top:1px solid var(--line);position:relative}
+.ct__ag:last-child{border-bottom:1px solid var(--line)}
+.ct__ag h3{font-size:clamp(18px,1.5vw,22px);margin-bottom:7px}
+.ct__ag .addr{font-size:14.5px;color:var(--ink-2);line-height:1.55}
+.ct__ag .tel{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3);margin-top:6px;display:block}
+.ct__ag .tag{position:absolute;top:22px;right:0;font-family:var(--mono);font-size:9px;
+  text-transform:uppercase;letter-spacing:.2em;color:var(--accent)}
+.ct__giac{border:1px solid var(--line);border-radius:2px;padding:24px}
+.ct__giac p{font-size:14px;color:var(--ink-2);line-height:1.6;margin-top:10px}
 </style>
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
+<div class="rail" aria-hidden="true"><i id="railfill"></i></div>
+<div class="cur-ring" id="curRing" aria-hidden="true"></div>
+<div class="cur" id="curDot" aria-hidden="true"></div>
 
 <a class="btn skip" href="#main" style="position:absolute;left:-9999px;top:0;z-index:200"
    onfocus="this.style.left='16px';this.style.top='16px'" onblur="this.style.left='-9999px'">Aller au contenu</a>
@@ -299,6 +394,114 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
 
 <!-- SECTIONS INJECTED HERE -->
 
+<!-- ============================ CONTACT ============================ -->
+<section class="ct" id="contact">
+  <div class="wrap">
+    <div class="ct__head">
+      <p class="eyebrow reveal">Contact</p>
+      <h2 class="reveal" style="--d:.06s">Un projet, une contrainte, <span class="serif-it">une échéance.</span></h2>
+      <p class="lede reveal" style="--d:.12s">
+        Décrivez votre projet en quelques lignes. Un ingénieur de l'agence la plus proche
+        vous recontacte.
+      </p>
+    </div>
+
+    <div class="ct__grid">
+      <form class="ct__form reveal" id="ctform" action="{{FORM_ENDPOINT}}" method="post" novalidate>
+        <div class="ct__row">
+          <div class="ct__f">
+            <label for="f-nom">Nom <span class="req" aria-hidden="true">*</span></label>
+            <input id="f-nom" name="nom" type="text" required autocomplete="name" placeholder="Prénom et nom">
+          </div>
+          <div class="ct__f">
+            <label for="f-org">Organisation</label>
+            <input id="f-org" name="organisation" type="text" autocomplete="organization" placeholder="Collectivité, maître d'œuvre, industriel…">
+          </div>
+        </div>
+        <div class="ct__row">
+          <div class="ct__f">
+            <label for="f-mail">E-mail <span class="req" aria-hidden="true">*</span></label>
+            <input id="f-mail" name="email" type="email" required autocomplete="email" placeholder="nom@organisation.fr">
+          </div>
+          <div class="ct__f">
+            <label for="f-tel">Téléphone</label>
+            <input id="f-tel" name="telephone" type="tel" autocomplete="tel" placeholder="Optionnel">
+          </div>
+        </div>
+        <div class="ct__f">
+          <label for="f-obj">Nature de la demande</label>
+          <select id="f-obj" name="objet">
+            <option>Étude acoustique</option>
+            <option>Isolation de façades</option>
+            <option>Étude vibratoire</option>
+            <option>Conception d'écrans acoustiques</option>
+            <option>Surveillance de chantier</option>
+            <option>Campagne de mesures</option>
+            <option>Essais sur ouvrages de protections acoustiques</option>
+            <option>Volet air et santé / bilan carbone</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="ct__f">
+          <label for="f-msg">Votre projet <span class="req" aria-hidden="true">*</span></label>
+          <textarea id="f-msg" name="message" required placeholder="Contexte, localisation, échéance, contraintes réglementaires…"></textarea>
+        </div>
+        <div class="ct__consent">
+          <input id="f-rgpd" name="consentement" type="checkbox" required>
+          <label for="f-rgpd">J'accepte que ces informations soient utilisées pour traiter ma demande, conformément à la politique de confidentialité.</label>
+        </div>
+        <p class="ct__err" id="cterr" role="alert" aria-live="polite"></p>
+        <div>
+          <button class="btn btn--accent" type="submit">Demander une étude
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
+          </button>
+        </div>
+        <p class="ct__note">Champs marqués * obligatoires</p>
+      </form>
+
+      <aside class="ct__aside reveal" style="--d:.1s">
+        <div class="ct__agencies">
+          <div class="ct__ag">
+            <span class="tag">Siège</span>
+            <h3>Aix-en-Provence</h3>
+            <p class="addr">24 B rue Roux Alphéran<br>13100 Aix-en-Provence</p>
+            <span class="tel">{{TEL_SIEGE}}</span>
+          </div>
+          <div class="ct__ag">
+            <h3>Marseille</h3>
+            <p class="addr">263 avenue de Saint-Antoine<br>13015 Marseille</p>
+            <span class="tel">{{TEL_MARSEILLE}}</span>
+          </div>
+          <div class="ct__ag">
+            <h3>Lyon</h3>
+            <p class="addr">146 avenue Félix Faure<br>69003 Lyon</p>
+            <span class="tel">{{TEL_LYON}}</span>
+          </div>
+          <div class="ct__ag">
+            <h3>Paris</h3>
+            <p class="addr">{{ADRESSE_PARIS}}</p>
+            <span class="tel">{{TEL_PARIS}}</span>
+          </div>
+          <div class="ct__ag">
+            <h3>Toulon</h3>
+            <p class="addr">{{ADRESSE_TOULON}}</p>
+            <span class="tel">{{TEL_TOULON}}</span>
+          </div>
+        </div>
+
+        <div class="ct__giac">
+          <p class="eyebrow">Indépendance</p>
+          <p>
+            Membre du GIAC, le Groupement de l'Ingénierie Acoustique. Nous exerçons
+            en toute indépendance technique, juridique, commerciale et financière
+            vis-à-vis des solutions que nous préconisons.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <!-- ============================ FOOTER ============================ -->
@@ -346,16 +549,25 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
   /* ---- year ---- */
   var yr = document.getElementById('yr'); if (yr) yr.textContent = new Date().getFullYear();
 
-  /* ---- header condense ---- */
-  var hdr = document.getElementById('hdr'), ticking = false;
+  /* ---- header condense + progress rail ---- */
+  var hdr = document.getElementById('hdr'), rail = document.getElementById('railfill'), ticking = false;
+  var narrow = window.matchMedia('(max-width:900px)');
   function onScroll(){
     if (ticking) return; ticking = true;
     requestAnimationFrame(function(){
       hdr.classList.toggle('stuck', window.scrollY > 40);
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      var p = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+      if (rail) rail.style[narrow.matches ? 'width' : 'height'] = (p * 100).toFixed(2) + '%';
       ticking = false;
     });
   }
-  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', function(){
+    if (rail){ rail.style.width = ''; rail.style.height = ''; }
+    onScroll();
+  }, {passive:true});
+  onScroll();
 
   /* ---- mobile nav ---- */
   var burger = document.getElementById('burger'), nav = document.getElementById('nav');
@@ -381,6 +593,58 @@ h3{font-size:clamp(21px,2vw,30px);line-height:1.15;letter-spacing:-.015em}
       });
     }, {rootMargin:'0px 0px -10% 0px', threshold:.12});
     targets.forEach(function(t){ io.observe(t); });
+  }
+
+  /* ---- custom cursor ---- */
+  var fine = window.matchMedia('(pointer:fine)').matches;
+  if (fine && !reduce){
+    var dot = document.getElementById('curDot'), ring = document.getElementById('curRing');
+    var mx = -50, my = -50, dx = -50, dy = -50, rx = -50, ry = -50;
+    document.addEventListener('pointermove', function(e){ mx = e.clientX; my = e.clientY; }, {passive:true});
+    (function tick(){
+      dx += (mx - dx) * .35; dy += (my - dy) * .35;
+      rx += (mx - rx) * .14; ry += (my - ry) * .14;
+      dot.style.transform  = 'translate3d(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px,0)';
+      ring.style.transform = 'translate3d(' + rx.toFixed(1) + 'px,' + ry.toFixed(1) + 'px,0)';
+      requestAnimationFrame(tick);
+    })();
+    document.addEventListener('pointerover', function(e){
+      var hot = e.target.closest && e.target.closest('a,button,input,select,textarea,summary,[role="button"]');
+      ring.classList.toggle('hot', !!hot);
+    }, {passive:true});
+    document.addEventListener('pointerleave', function(){ ring.style.opacity = '0'; });
+    document.addEventListener('pointerenter', function(){ ring.style.opacity = '1'; });
+  }
+
+  /* ---- contact form ---- */
+  var form = document.getElementById('ctform');
+  if (form){
+    var errBox = document.getElementById('cterr');
+    var unconfigured = form.getAttribute('action').indexOf('{{') !== -1;
+    form.addEventListener('submit', function(e){
+      var bad = [];
+      ['f-nom','f-mail','f-msg','f-rgpd'].forEach(function(id){
+        var el = document.getElementById(id);
+        var ok = el.type === 'checkbox' ? el.checked
+               : el.type === 'email'    ? /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(el.value.trim())
+               : el.value.trim().length > 1;
+        var f = el.closest('.ct__f');
+        if (f) f.classList.toggle('bad', !ok);
+        el.setAttribute('aria-invalid', String(!ok));
+        if (!ok) bad.push(el);
+      });
+      if (bad.length){
+        e.preventDefault();
+        errBox.textContent = 'Merci de compléter les champs obligatoires.';
+        bad[0].focus();
+        return;
+      }
+      errBox.textContent = '';
+      if (unconfigured){
+        e.preventDefault();
+        errBox.textContent = 'Formulaire non relié : renseignez {{FORM_ENDPOINT}} avant mise en ligne.';
+      }
+    });
   }
 
   /* ---- animated hero waveform ---- */

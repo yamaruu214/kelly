@@ -94,6 +94,11 @@ a{color:inherit;text-decoration:none}
 .cur-ring.hot{width:60px;height:60px;margin:-30px 0 0 -30px;background:var(--accent-dim)}
 @media (pointer:coarse),(hover:none){.cur,.cur-ring{display:none}}
 
+/* --- skip link ---------------------------------------------- */
+.skip{position:fixed;top:12px;left:12px;z-index:200;transform:translateY(-160%);
+  transition:transform .25s var(--ease-quart)}
+.skip:focus-visible{transform:none}
+
 /* --- layout ------------------------------------------------ */
 .wrap{width:100%;max-width:var(--maxw);margin-inline:auto;padding-inline:var(--gutter)}
 section{position:relative;padding-block:clamp(88px,12vw,180px)}
@@ -110,7 +115,7 @@ section[id]{scroll-margin-top:88px}
   content:'';width:22px;height:1px;background:var(--accent);flex:none;opacity:.8;
 }
 h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.03em;line-height:.94;text-wrap:balance}
-h1{font-size:clamp(44px,8.6vw,124px);font-weight:800;font-stretch:112%;letter-spacing:-.038em;line-height:.88}
+h1{font-size:clamp(42px,7.4vw,104px);font-weight:800;font-stretch:112%;letter-spacing:-.038em;line-height:.88}
 h2{font-size:clamp(32px,5.2vw,76px);line-height:.96}
 h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font-weight:600}
 .serif-it{font-family:var(--serif);font-style:italic;font-weight:400;font-stretch:100%;
@@ -219,18 +224,18 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 /* ============================================================
    HERO
    ============================================================ */
-.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:flex-end;
-  padding-top:calc(84px + clamp(40px,10vh,110px));padding-bottom:clamp(32px,5vh,56px);overflow:hidden}
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;
+  padding-top:calc(80px + clamp(16px,4vh,44px));padding-bottom:clamp(28px,4vh,48px);overflow:hidden}
 .hero__bg{position:absolute;inset:0;z-index:0;pointer-events:none;
   background:
     radial-gradient(120% 90% at 50% 0%,rgba(111,227,255,.15),rgba(111,227,255,.03) 38%,transparent 70%),
     radial-gradient(115% 115% at 50% 50%,transparent 45%,rgba(5,6,10,.78) 100%);}
 .hero .wrap{position:relative;z-index:1;width:100%}
-.hero h1{margin-block:clamp(22px,3.4vw,40px) clamp(26px,3.6vw,44px);max-width:16ch}
+.hero h1{margin-block:clamp(16px,2.4vw,30px) clamp(20px,2.6vw,32px);max-width:15ch}
 .hero__foot{
   display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
-  gap:clamp(26px,4vw,60px);margin-top:clamp(46px,7vw,90px);
-  padding-top:26px;border-top:1px solid var(--line);
+  gap:clamp(22px,3vw,48px);margin-top:clamp(26px,3.6vw,52px);
+  padding-top:22px;border-top:1px solid var(--line);
 }
 .hero__cta{display:flex;flex-wrap:wrap;gap:12px}
 .hero__meta{display:flex;flex-wrap:wrap;gap:clamp(22px,3vw,46px)}
@@ -240,8 +245,8 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   line-height:1.15;letter-spacing:-.02em}
 
 /* wave */
-.wave{position:absolute;left:0;right:0;bottom:0;height:34vh;min-height:200px;z-index:0;
-  opacity:.5;pointer-events:none;
+.wave{position:absolute;left:0;right:0;bottom:0;height:30vh;min-height:170px;z-index:0;
+  opacity:.38;pointer-events:none;
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
   mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
 .wave path{fill:none;stroke:var(--accent);stroke-width:1.1;vector-effect:non-scaling-stroke}
@@ -332,7 +337,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
    PART: manifeste.css — #manifeste (pinned act) + #preuves (stats act)
    Prefix: mf-   |  Depends on shell tokens only, redefines none.
    Base styles = the no-JS / reduced-motion static fallback.
-   Everything pinned is gated behind .mf-act.is-pinned (added by JS).
+   Everything pinned is gated behind .mf-act.mf-pinned (added by JS).
    ============================================================ */
 
 .mf-act,
@@ -357,8 +362,12 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 
 .mf-stage__bg{
   position:absolute;inset:0;z-index:0;pointer-events:none;
+  /* neutral fallback first, then the accent-derived glow (no hardcoded hue) */
   background:
-    radial-gradient(760px 520px at 88% 14%,rgba(201,242,77,.055),transparent 64%),
+    radial-gradient(760px 520px at 88% 14%,rgba(244,242,237,.05),transparent 64%),
+    radial-gradient(620px 480px at 4% 96%,rgba(244,242,237,.035),transparent 62%);
+  background:
+    radial-gradient(760px 520px at 88% 14%,color-mix(in srgb,var(--accent) 7%,transparent),transparent 64%),
     radial-gradient(620px 480px at 4% 96%,rgba(244,242,237,.035),transparent 62%);
 }
 .mf-act::before,
@@ -419,7 +428,8 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 .mf-line{
   font-family:var(--serif);
   font-weight:400;
-  font-size:clamp(29px,5.2vw,64px);
+  /* vh term keeps six authored rows inside a short viewport when pinned */
+  font-size:clamp(28px,min(5.2vw,7vh),64px);
   line-height:1.02;
   letter-spacing:-.025em;
   color:var(--ink);
@@ -441,11 +451,11 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 }
 
 /* --- PINNED MODE (JS-enabled, motion allowed) --- */
-.mf-act.is-pinned .mf-track{
+.mf-act.mf-pinned .mf-track{
   min-height:300vh;
   min-height:300svh;
 }
-.mf-act.is-pinned .mf-stage{
+.mf-act.mf-pinned .mf-stage{
   position:-webkit-sticky;
   position:sticky;
   top:0;
@@ -453,55 +463,55 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   min-height:100svh;
   overflow:hidden;
 }
-.mf-act.is-pinned .mf-stage__in{
+.mf-act.mf-pinned .mf-stage__in{
   grid-template-columns:minmax(0,1fr);
   align-content:center;
 }
-.mf-act.is-pinned .mf-meter{display:flex}
+.mf-act.mf-pinned .mf-meter{display:flex}
 
-.mf-act.is-pinned .mf-lines{
+.mf-act.mf-pinned .mf-lines{
   display:grid;
   grid-template-columns:minmax(0,1fr);
   align-items:start;
   gap:0;
 }
-.mf-act.is-pinned .mf-line{
+.mf-act.mf-pinned .mf-line{
   grid-area:1 / 1;
   opacity:0;
   transition:opacity .5s var(--mf-ease-quart);
 }
-.mf-act.is-pinned .mf-line.is-on{
+.mf-act.mf-pinned .mf-line.mf-on{
   opacity:1;
   transition-duration:.7s;
 }
 
 /* wipe: rows sit below, rise into place, exit upward */
-.mf-act.is-pinned .mf-row{
+.mf-act.mf-pinned .mf-row{
   overflow:hidden;
   padding-bottom:.16em;
   margin-bottom:-.16em;
 }
-.mf-act.is-pinned .mf-row>span{
+.mf-act.mf-pinned .mf-row>span{
   transform:translateY(112%);
   transition:transform .92s var(--mf-ease-expo);
   transition-delay:calc(var(--i,0) * 62ms);
   will-change:transform;
 }
-.mf-act.is-pinned .mf-line.is-on .mf-row>span{transform:none}
-.mf-act.is-pinned .mf-line.is-past .mf-row>span{
+.mf-act.mf-pinned .mf-line.mf-on .mf-row>span{transform:none}
+.mf-act.mf-pinned .mf-line.mf-past .mf-row>span{
   transform:translateY(-112%);
   transition-duration:.6s;
   transition-delay:calc(var(--i,0) * 26ms);
 }
-.mf-act.is-pinned .mf-row--note{
+.mf-act.mf-pinned .mf-row--note{
   padding-bottom:0;margin-bottom:0;overflow:visible;
 }
-.mf-act.is-pinned .mf-row--note>span{
+.mf-act.mf-pinned .mf-row--note>span{
   transform:none;opacity:0;
   transition:opacity .7s var(--mf-ease-quart);
   transition-delay:.34s;
 }
-.mf-act.is-pinned .mf-line.is-on .mf-row--note>span{opacity:1}
+.mf-act.mf-pinned .mf-line.mf-on .mf-row--note>span{opacity:1}
 
 /* two-column stage from tablet up */
 @media (min-width:820px){
@@ -511,7 +521,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
     align-items:start;
   }
   .mf-hud{padding-top:.5em}
-  .mf-act.is-pinned .mf-stage__in{
+  .mf-act.mf-pinned .mf-stage__in{
     grid-template-columns:minmax(180px,20%) minmax(0,1fr);
     align-items:center;
   }
@@ -525,7 +535,15 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 
 @media (min-width:1180px){
   .mf-stage__in{grid-template-columns:minmax(200px,18%) minmax(0,1fr)}
-  .mf-line{font-size:clamp(48px,4.6vw,64px)}
+  .mf-line{font-size:clamp(40px,min(4.6vw,7vh),64px)}
+}
+
+/* short viewports: give the pinned stage its height back */
+@media (max-height:760px){
+  .mf-act.mf-pinned .mf-stage{padding-block:92px 56px}
+  .mf-act.mf-pinned .mf-row--note{
+    margin-top:clamp(14px,2vw,20px);padding-top:12px;
+  }
 }
 
 /* ============================================================
@@ -538,7 +556,6 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   margin-block:clamp(18px,2.6vw,32px) clamp(20px,2.6vw,34px);
   max-width:13ch;
 }
-.mf-proof__h .mask{display:block;overflow:hidden}
 
 .mf-stats{
   list-style:none;
@@ -585,10 +602,8 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   letter-spacing:.22em;
   color:var(--ink-3);
   white-space:nowrap;
-  align-self:flex-end;
-  padding-bottom:.15em;
+  align-self:baseline;   /* sits on the numeral's baseline, never animates */
 }
-.mf-stat__pre{align-self:baseline;padding-bottom:0}
 
 .mf-stat__label{
   font-family:var(--sans);
@@ -631,23 +646,14 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   gap:clamp(18px,2.4vw,32px);
   align-items:start;
 }
-.mf-norms__list{
-  list-style:none;margin:0;padding:0;
-  display:flex;flex-wrap:wrap;
-  gap:10px 12px;
+.mf-norms__note{max-width:52ch;color:var(--ink-2)}
+.mf-inline{
+  color:var(--accent);
+  border-bottom:1px solid var(--line-2);
+  padding-bottom:1px;
+  transition:border-color var(--dur-fast,280ms) var(--mf-ease-quart);
 }
-.mf-norms__list li{
-  font-family:var(--mono);
-  font-size:clamp(10px,.8vw,11.5px);
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  color:var(--ink-2);
-  border:1px solid var(--line-2);
-  border-radius:2px;
-  padding:8px 12px;
-  white-space:nowrap;
-}
-.mf-norms__note{max-width:46ch;color:var(--ink-3)}
+.mf-inline:hover,.mf-inline:focus-visible{border-bottom-color:var(--accent)}
 
 @media (min-width:900px){
   .mf-norms{
@@ -661,22 +667,21 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
    3 — REDUCED MOTION: collapse to a static stack, no counting
    ============================================================ */
 @media (prefers-reduced-motion:reduce){
-  .mf-act.is-pinned .mf-track{min-height:0}
-  .mf-act.is-pinned .mf-stage{position:static;min-height:0;overflow:visible}
-  .mf-act.is-pinned .mf-lines{
+  .mf-act.mf-pinned .mf-track{min-height:0}
+  .mf-act.mf-pinned .mf-stage{position:static;min-height:0;overflow:visible}
+  .mf-act.mf-pinned .mf-lines{
     display:flex;flex-direction:column;gap:clamp(34px,5vw,60px);
   }
-  .mf-act.is-pinned .mf-line{
+  .mf-act.mf-pinned .mf-line{
     grid-area:auto;opacity:1!important;transition:none!important;
   }
-  .mf-act.is-pinned .mf-row{overflow:visible;padding-bottom:0;margin-bottom:0}
-  .mf-act.is-pinned .mf-row>span,
-  .mf-act.is-pinned .mf-row--note>span{
+  .mf-act.mf-pinned .mf-row{overflow:visible;padding-bottom:0;margin-bottom:0}
+  .mf-act.mf-pinned .mf-row>span,
+  .mf-act.mf-pinned .mf-row--note>span{
     transform:none!important;opacity:1!important;transition:none!important;
   }
-  .mf-act.is-pinned .mf-meter{display:none}
+  .mf-act.mf-pinned .mf-meter{display:none}
   .mf-rail__fill{transform:none}
-  .mf-quote{display:none}
 }
 
 /* ===== expertise ===== */
@@ -983,7 +988,11 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   align-items:start;
 }
 .md-methode__sticky{position:sticky;top:clamp(100px,13vh,148px)}
-.md-methode__aside h2{margin-block:clamp(16px,2.2vw,26px) clamp(14px,1.6vw,20px)}
+.md-methode__aside h2{
+  /* narrower column than a full-bleed header : rein the display size in */
+  font-size:clamp(30px,3.4vw,52px);
+  margin-block:clamp(16px,2.2vw,26px) clamp(14px,1.6vw,20px);
+}
 .md-methode__intro{max-width:34ch}
 
 /* oversized crossfading numeral */
@@ -1030,6 +1039,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   border-top:1px solid var(--line);
 }
 .md-step:last-child{border-bottom:1px solid var(--line)}
+.md-step__body{min-width:0}
 .md-step__k{
   font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.18em;
   color:var(--ink-2);padding-top:.5em;transition:color .5s var(--ease);
@@ -1075,8 +1085,9 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
    2 — AIR & SANTÉ  (the single ember act)
    ============================================================ */
 .md-air{
-  --md-ember:#ff5b1f;
-  --md-ember-hi:#ff7a48;
+  /* the shell may or may not ship an --ember token : fall back to the spec value */
+  --md-ember:var(--ember,#ff5b1f);
+  --md-ember-hi:#ff7a48; /* lightened ember for hover */
   --md-ember-ink:#170601;
   isolation:isolate;
   overflow:hidden;
@@ -1153,26 +1164,6 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
   .md-offers{grid-template-columns:minmax(0,1fr);gap:clamp(24px,5vw,34px)}
 }
 
-/* ============================================================
-   3 — RÉFÉRENCES  (editorial table)
-   ============================================================ */
-.md-figs{
-  list-style:none;margin:clamp(44px,6vw,84px) 0 clamp(38px,5vw,68px);padding:0;
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:clamp(18px,3vw,48px);
-}
-.md-fig{border-top:1px solid var(--line);padding-top:clamp(14px,1.6vw,20px)}
-.md-fig__n{
-  display:block;font-family:var(--serif);
-  font-size:clamp(38px,5vw,72px);line-height:.95;letter-spacing:-.035em;
-}
-.md-fig:nth-child(2) .md-fig__n{color:var(--accent)}
-.md-fig__l{
-  display:block;margin-top:clamp(10px,1.2vw,16px);
-  font-family:var(--mono);font-size:10px;text-transform:uppercase;
-  letter-spacing:.17em;line-height:1.7;color:var(--ink-2);max-width:26ch;
-}
-
 .md-tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .md-tbl{
   width:100%;border-collapse:separate;border-spacing:0;text-align:left;
@@ -1230,11 +1221,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 .md-refs__foot{margin-top:clamp(26px,3vw,40px);max-width:52ch}
 
 @media (max-width:760px){
-  .md-figs{grid-template-columns:minmax(0,1fr);gap:clamp(18px,4vw,26px)}
-  .md-fig{display:flex;align-items:baseline;gap:clamp(14px,4vw,22px)}
-  .md-fig__n{font-size:clamp(32px,9vw,52px);min-width:2.4ch}
-  .md-fig__l{margin-top:0;max-width:30ch}
-
+        
   .md-tblwrap{overflow-x:visible}
   .md-tbl,.md-tbl thead,.md-tbl tbody,.md-tbl td{display:block;width:100%}
   .md-tbl{table-layout:auto}
@@ -1268,13 +1255,10 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
    REDUCED MOTION
    ============================================================ */
 @media (prefers-reduced-motion:reduce){
+  /* no pin, no crossfade, every step at full contrast */
   .md-methode__sticky{position:static}
-  .md-count__n{
-    position:static;opacity:1;transform:none;transition:none;
-  }
-  .md-count__stack{width:auto;height:auto;display:none}
-  .md-count{display:none}
-  .md-prog{display:none}
+  .md-count,.md-prog{display:none}
+  .md-count__n{opacity:1;transform:none;transition:none}
   .md-methode.md-js .md-step__t,
   .md-methode .md-step__t{color:var(--ink)}
   .md-methode.md-js .md-step__k,
@@ -1293,8 +1277,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 <div class="cur-ring" id="curRing" aria-hidden="true"></div>
 <div class="cur" id="curDot" aria-hidden="true"></div>
 
-<a class="btn skip" href="#main" style="position:absolute;left:-9999px;top:0;z-index:200"
-   onfocus="this.style.left='16px';this.style.top='16px'" onblur="this.style.left='-9999px'">Aller au contenu</a>
+<a class="skip btn btn--accent" href="#main">Aller au contenu</a>
 
 <header class="hdr" id="hdr">
   <div class="wrap hdr__in">
@@ -1338,7 +1321,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
     <div class="hero__foot reveal" style="--d:.44s">
       <div class="hero__cta">
         <a class="btn btn--accent" href="#contact">Démarrer un projet
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
         </a>
         <a class="btn" href="#expertise">Nos expertises</a>
       </div>
@@ -1347,7 +1330,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
         <div><span class="k">Domaines</span><span class="v">Acoustique · Vibrations · Air</span></div>
       </div>
     </div>
-    <div class="hint reveal" style="--d:.6s;margin-top:34px"><i aria-hidden="true"></i>Faites défiler</div>
+    <div class="hint reveal" style="--d:.6s;margin-top:22px"><i aria-hidden="true"></i>Faites défiler</div>
   </div>
 </section>
 
@@ -1395,19 +1378,20 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 
           <p class="mf-line" data-mf-beat="1">
             <span class="mf-row" style="--i:0"><span>Membre du GIAC,</span></span>
-            <span class="mf-row" style="--i:1"><span>nous exer&ccedil;ons en toute</span></span>
-            <span class="mf-row" style="--i:2"><span><em class="serif-it">ind&eacute;pendance</em> technique,</span></span>
-            <span class="mf-row" style="--i:3"><span>juridique, commerciale</span></span>
-            <span class="mf-row" style="--i:4"><span>et financi&egrave;re.</span></span>
-            <span class="mf-row mf-row--note" style="--i:5"><span>Vis-&agrave;-vis de l'ensemble des solutions que nous pr&eacute;conisons.</span></span>
+            <span class="mf-row" style="--i:1"><span>nous exer&ccedil;ons en</span></span>
+            <span class="mf-row" style="--i:2"><span>toute <em class="serif-it">ind&eacute;pendance</em></span></span>
+            <span class="mf-row" style="--i:3"><span>technique, juridique,</span></span>
+            <span class="mf-row" style="--i:4"><span>commerciale et</span></span>
+            <span class="mf-row" style="--i:5"><span>financi&egrave;re.</span></span>
+            <span class="mf-row mf-row--note" style="--i:6"><span>Vis-&agrave;-vis de l'ensemble des solutions que nous pr&eacute;conisons.</span></span>
           </p>
 
           <p class="mf-line" data-mf-beat="2">
             <span class="mf-row" style="--i:0"><span>Aucun int&eacute;r&ecirc;t</span></span>
             <span class="mf-row" style="--i:1"><span>dans les produits</span></span>
             <span class="mf-row" style="--i:2"><span>que nous prescrivons.</span></span>
-            <span class="mf-row" style="--i:3"><span>Seulement des r&eacute;sultats</span></span>
-            <span class="mf-row" style="--i:4"><span><em class="serif-it">mesurables</em>.</span></span>
+            <span class="mf-row" style="--i:3"><span>Seulement des</span></span>
+            <span class="mf-row" style="--i:4"><span>r&eacute;sultats <em class="serif-it">mesurables</em>.</span></span>
           </p>
 
         </div>
@@ -1433,7 +1417,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
       </p>
     </div>
 
-    <ul class="mf-stats">
+    <ul class="mf-stats" role="list">
 
       <li class="mf-stat mf-stat--a reveal">
         <p class="mf-stat__fig">
@@ -1478,16 +1462,11 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
     </ul>
 
     <div class="mf-norms reveal">
-      <p class="eyebrow">R&eacute;f&eacute;rentiels appliqu&eacute;s</p>
-      <ul class="mf-norms__list">
-        <li>NF&nbsp;EN&nbsp;1793-5</li>
-        <li>NF&nbsp;EN&nbsp;1793-6</li>
-        <li>NF&nbsp;EN&nbsp;16272-5</li>
-        <li>NF&nbsp;EN&nbsp;16272-6</li>
-      </ul>
+      <p class="eyebrow">Et depuis 2022</p>
       <p class="mf-norms__note small">
-        Depuis 2022, nous r&eacute;alisons pour SNCF R&eacute;seau l'isolation acoustique
-        de fa&ccedil;ades de logements riverains.
+        Nous r&eacute;alisons pour SNCF R&eacute;seau l'isolation acoustique de fa&ccedil;ades
+        de logements riverains. Les r&eacute;f&eacute;rentiels d'essai que nous appliquons sont
+        d&eacute;taill&eacute;s en <a class="mf-inline" href="#mesures">Mesures &amp; essais</a>.
       </p>
     </div>
 
@@ -1911,7 +1890,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 
     <header class="md-head">
       <p class="eyebrow reveal">Air &amp; Santé — CIA Air</p>
-      <h2 class="reveal md-air__h" style="--d:.06s">
+      <h2 class="reveal" style="--d:.06s">
         Le second volet de <span class="serif-it">l'étude d'impact</span>
       </h2>
       <p class="lede reveal" style="--d:.12s">
@@ -1991,7 +1970,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
 <section id="references" class="md-refs">
   <div class="wrap">
 
-    <header class="md-head md-head--refs">
+    <header class="md-head">
       <p class="eyebrow reveal">Nos réalisations</p>
       <h2 class="reveal" style="--d:.06s">Des infrastructures,<br>du relevé à la <span class="serif-it">réception</span></h2>
       <p class="lede reveal" style="--d:.12s">
@@ -2002,59 +1981,53 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
       </p>
     </header>
 
-    <ul class="md-figs reveal" style="--d:.16s">
-      <li class="md-fig"><span class="md-fig__n">3</span><span class="md-fig__l">lignes de tramway, Marseille</span></li>
-      <li class="md-fig"><span class="md-fig__n">27</span><span class="md-fig__l">écrans acoustiques, vallée du Rhône</span></li>
-      <li class="md-fig"><span class="md-fig__n">2008</span><span class="md-fig__l">premiers aménagements ferroviaires au nord de Toulouse</span></li>
-    </ul>
-
-    <div class="md-tblwrap reveal" style="--d:.2s">
-      <table class="md-tbl" role="table">
+    <div class="md-tblwrap reveal" style="--d:.16s">
+      <table class="md-tbl">
         <caption class="md-vh">Sélection de réalisations : période, projet, domaine et prestation</caption>
-        <thead role="rowgroup">
-          <tr class="md-tbl__head" role="row">
-            <th scope="col" role="columnheader">Période</th>
-            <th scope="col" role="columnheader">Projet</th>
-            <th scope="col" role="columnheader">Domaine</th>
-            <th scope="col" role="columnheader">Prestation</th>
+        <thead>
+          <tr class="md-tbl__head">
+            <th scope="col">Période</th>
+            <th scope="col">Projet</th>
+            <th scope="col">Domaine</th>
+            <th scope="col">Prestation</th>
           </tr>
         </thead>
-        <tbody role="rowgroup">
-          <tr role="row">
-            <td role="cell" data-l="Période" class="md-tbl__y">{{PERIODE_TRAMWAY_MARSEILLE}}</td>
-            <td role="cell" data-l="Projet" class="md-tbl__p">Tramway de Marseille</td>
-            <td role="cell" data-l="Domaine" class="md-tbl__dm">Ferroviaire urbain</td>
-            <td role="cell" data-l="Prestation" class="md-tbl__s">Création de trois lignes de tramway</td>
+        <tbody>
+          <tr>
+            <td data-l="Période" class="md-tbl__y">{{PERIODE_TRAMWAY_MARSEILLE}}</td>
+            <td data-l="Projet" class="md-tbl__p">Tramway de Marseille</td>
+            <td data-l="Domaine" class="md-tbl__dm">Ferroviaire urbain</td>
+            <td data-l="Prestation" class="md-tbl__s">Création de trois lignes de tramway</td>
           </tr>
-          <tr role="row">
-            <td role="cell" data-l="Période" class="md-tbl__y">{{PERIODE_ECRANS_RHONE}}</td>
-            <td role="cell" data-l="Projet" class="md-tbl__p">Vallée du Rhône</td>
-            <td role="cell" data-l="Domaine" class="md-tbl__dm">Ferroviaire</td>
-            <td role="cell" data-l="Prestation" class="md-tbl__s">Réalisation de 27 écrans acoustiques sur voies ferrées</td>
+          <tr>
+            <td data-l="Période" class="md-tbl__y">{{PERIODE_ECRANS_RHONE}}</td>
+            <td data-l="Projet" class="md-tbl__p">Vallée du Rhône</td>
+            <td data-l="Domaine" class="md-tbl__dm">Ferroviaire</td>
+            <td data-l="Prestation" class="md-tbl__s">Réalisation de 27 écrans acoustiques sur voies ferrées</td>
           </tr>
-          <tr role="row">
-            <td role="cell" data-l="Période" class="md-tbl__y">Depuis 2022</td>
-            <td role="cell" data-l="Projet" class="md-tbl__p">SNCF Réseau — isolation de façades</td>
-            <td role="cell" data-l="Domaine" class="md-tbl__dm">Bâti riverain</td>
-            <td role="cell" data-l="Prestation" class="md-tbl__s">Isolation acoustique de façades de logements</td>
+          <tr>
+            <td data-l="Période" class="md-tbl__y">Depuis 2022</td>
+            <td data-l="Projet" class="md-tbl__p">SNCF Réseau — isolation de façades</td>
+            <td data-l="Domaine" class="md-tbl__dm">Bâti riverain</td>
+            <td data-l="Prestation" class="md-tbl__s">Isolation acoustique de façades de logements</td>
           </tr>
-          <tr role="row">
-            <td role="cell" data-l="Période" class="md-tbl__y">Depuis 2008</td>
-            <td role="cell" data-l="Projet" class="md-tbl__p">Nord de Toulouse — SNCF Réseau</td>
-            <td role="cell" data-l="Domaine" class="md-tbl__dm">Ferroviaire</td>
-            <td role="cell" data-l="Prestation" class="md-tbl__s">Projets d'aménagements ferroviaires</td>
+          <tr>
+            <td data-l="Période" class="md-tbl__y">Depuis 2008</td>
+            <td data-l="Projet" class="md-tbl__p">Nord de Toulouse — SNCF Réseau</td>
+            <td data-l="Domaine" class="md-tbl__dm">Ferroviaire</td>
+            <td data-l="Prestation" class="md-tbl__s">Projets d'aménagements ferroviaires</td>
           </tr>
-          <tr role="row">
-            <td role="cell" data-l="Période" class="md-tbl__y">{{ANNEE_ZAC_SIX_ROUTES}}</td>
-            <td role="cell" data-l="Projet" class="md-tbl__p">ZAC des Six Routes, La Courneuve</td>
-            <td role="cell" data-l="Domaine" class="md-tbl__dm">Aménagement urbain</td>
-            <td role="cell" data-l="Prestation" class="md-tbl__s">Bilan des émissions de gaz à effet de serre</td>
+          <tr>
+            <td data-l="Période" class="md-tbl__y">{{ANNEE_ZAC_SIX_ROUTES}}</td>
+            <td data-l="Projet" class="md-tbl__p">ZAC des Six Routes, La Courneuve</td>
+            <td data-l="Domaine" class="md-tbl__dm">Aménagement urbain</td>
+            <td data-l="Prestation" class="md-tbl__s">Bilan des émissions de gaz à effet de serre</td>
           </tr>
-          <tr role="row">
-            <td role="cell" data-l="Période" class="md-tbl__y">2023</td>
-            <td role="cell" data-l="Projet" class="md-tbl__p">Reconstitution Canet</td>
-            <td role="cell" data-l="Domaine" class="md-tbl__dm">{{DOMAINE_CANET}}</td>
-            <td role="cell" data-l="Prestation" class="md-tbl__s">Bilan carbone</td>
+          <tr>
+            <td data-l="Période" class="md-tbl__y">2023</td>
+            <td data-l="Projet" class="md-tbl__p">Reconstitution Canet</td>
+            <td data-l="Domaine" class="md-tbl__dm">{{DOMAINE_CANET}}</td>
+            <td data-l="Prestation" class="md-tbl__s">Bilan carbone</td>
           </tr>
         </tbody>
       </table>
@@ -2187,7 +2160,7 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
         <a class="logo" href="#top"><b>CIA</b><span class="dot" aria-hidden="true"></span><small>Acoustique</small></a>
         <h3>Un projet, une contrainte, une échéance&nbsp;?</h3>
         <a class="btn btn--accent" href="#contact">Nous écrire
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>
         </a>
       </div>
       <div class="ft__col">
@@ -2408,8 +2381,8 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
       active = idx;
       for (var i = 0; i < beats; i++) {
         var el = lines[i];
-        el.classList.toggle('is-on', i === idx);
-        el.classList.toggle('is-past', i < idx);
+        el.classList.toggle('mf-on', i === idx);
+        el.classList.toggle('mf-past', i < idx);
       }
       if (current) { current.textContent = pad(idx + 1, 2); }
     }
@@ -2426,21 +2399,25 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
       ticking = false;
     }
 
+    /* inView only skips work while the act is parked off-screen; it must never
+       be the reason a beat is missing, or landing mid-track (hash link, restored
+       scroll position, layout shift) leaves every line at opacity 0. */
     function request() {
-      if (ticking || !live || !inView) { return; }
+      if (ticking || !live) { return; }
+      if (!inView && active > -1) { return; }
       ticking = true;
       window.requestAnimationFrame(measure);
     }
 
     function enable() {
-      if (act.classList.contains('is-pinned')) { return; }
-      act.classList.add('is-pinned');
+      if (act.classList.contains('mf-pinned')) { return; }
+      act.classList.add('mf-pinned');
       live = true;
       window.addEventListener('scroll', request, { passive: true });
       window.addEventListener('resize', request);
 
-      /* Only observe/paint while the act is on screen — the first beat then
-         wipes in as the stage arrives instead of being pre-revealed. */
+      /* The observer exists to skip scroll work while the act is parked
+         off-screen, not to decide whether a beat is painted at all. */
       if (hasIO && !io) {
         io = new IntersectionObserver(function (entries) {
           inView = entries[0].isIntersecting;
@@ -2449,20 +2426,26 @@ h3{font-size:clamp(20px,1.9vw,29px);line-height:1.14;letter-spacing:-.018em;font
         io.observe(track);
       } else {
         inView = true;
-        request();
       }
+
+      /* Paint once immediately: adding .mf-pinned drops every line to
+         opacity 0, so a beat has to be resolved in the same frame. Adding
+         the class also grows the track to 300svh, which moves the document
+         under any hash jump — re-measure after that settles. */
+      measure();
+      window.requestAnimationFrame(function () { ticking = false; measure(); });
     }
 
     function disable() {
-      if (!act.classList.contains('is-pinned')) { return; }
+      if (!act.classList.contains('mf-pinned')) { return; }
       live = false;
       window.removeEventListener('scroll', request);
       window.removeEventListener('resize', request);
-      act.classList.remove('is-pinned');
+      act.classList.remove('mf-pinned');
       stage.style.removeProperty('--mf-p');
       for (var i = 0; i < beats; i++) {
-        lines[i].classList.remove('is-on');
-        lines[i].classList.remove('is-past');
+        lines[i].classList.remove('mf-on');
+        lines[i].classList.remove('mf-past');
       }
       active = -1;
     }

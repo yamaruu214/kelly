@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Kelly/3">
+<meta name="apple-mobile-web-app-title" content="Kelly">
 <meta name="theme-color" content="#0a0a0a">
-<title>Kelly/3</title>
+<title>Kelly</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -48,6 +48,10 @@
   header {
     padding: 24px 22px 12px;
     position: relative; z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
   .logo {
     font-family: 'Fraunces', serif;
@@ -55,17 +59,46 @@
     font-weight: 700;
     font-size: 28px;
     letter-spacing: -0.02em;
+    white-space: nowrap;
   }
   .logo em { color: var(--accent); font-style: italic; }
+
+  /* Sélecteur de fraction Kelly (en-tête : ne prend aucune place en plus) */
+  .picker { display: flex; gap: 6px; }
+  .pick {
+    appearance: none; -webkit-appearance: none;
+    min-width: 46px; height: 42px; padding: 0 12px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    color: var(--ink-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .pick:active { transform: scale(0.95); }
+  .pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pick[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0a0a0a;
+  }
+
   main {
     flex: 1;
-    padding: 8px 22px 20px;
+    padding: 8px 22px 40px;
     display: flex;
     flex-direction: column;
     gap: 18px;
     position: relative; z-index: 2;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
+  /* empêche la carte résultat (overflow:hidden) de se faire écraser quand la page défile */
+  main > * { flex-shrink: 0; }
+
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label {
     font-family: 'JetBrains Mono', monospace;
@@ -171,6 +204,82 @@
     color: var(--ink);
   }
 
+  /* Outil marge (plus bas, hors de la zone de saisie Kelly) */
+  .tool {
+    margin-top: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .tool-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-dim);
+  }
+  .tool-head::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+  .inwrap { position: relative; }
+  .inwrap input { padding-right: 52px; }
+  .inwrap .suf {
+    position: absolute;
+    right: 18px; top: 50%;
+    transform: translateY(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    color: var(--ink-dim);
+    pointer-events: none;
+  }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mcard {
+    background: linear-gradient(180deg, #161616 0%, #0e0e0e 100%);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 16px 16px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mcard::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+  .mcard .result-label { margin-bottom: 6px; }
+  .mval {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 44px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--accent);
+  }
+  .mval.off { color: var(--ink-dim); }
+  .msub {
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+  }
+  .msub b { color: var(--ink); font-weight: 500; }
+  .mnote {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    text-align: center;
+    line-height: 1.5;
+  }
+
   footer {
     padding: 10px 22px 18px;
     font-family: 'JetBrains Mono', monospace;
@@ -187,17 +296,23 @@
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
-  .result, .field { animation: rise 0.5s ease-out backwards; }
+  .result, .field, .tool { animation: rise 0.5s ease-out backwards; }
   .field:nth-child(1) { animation-delay: 0.05s; }
   .field:nth-child(2) { animation-delay: 0.1s; }
   .result { animation-delay: 0.2s; }
+  .tool { animation-delay: 0.3s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .result, .field, .tool { animation: none; }
+  }
 </style>
 </head>
 <body>
 <div class="grain"></div>
 
 <header>
-  <div class="logo">kelly<em>/3</em></div>
+  <div class="logo">kelly<em id="logoK">/3</em></div>
+  <div class="picker" id="picker" role="group" aria-label="Choisir la fraction de Kelly"></div>
 </header>
 
 <main>
@@ -213,23 +328,54 @@
   </div>
 
   <div class="result" id="result">
-    <div class="result-label">Mise recommandée</div>
+    <div class="result-label" id="resLabel">Mise recommandée · kelly/3</div>
     <div class="result-value"><span id="pct">—</span><span class="pct">%</span></div>
     <div class="verdict" id="verdict">Entre les deux cotes pour calculer.</div>
-    <div class="meta">
-      <div class="meta-item"><span class="k">Kelly/6</span><span class="v" id="k6">—</span></div>
-      <div class="meta-item"><span class="k">Kelly/12</span><span class="v" id="k12">—</span></div>
-    </div>
+    <div class="meta" id="meta"></div>
   </div>
+
+  <section class="tool" id="marginTool">
+    <div class="tool-head">Ajouter une marge</div>
+
+    <div class="row">
+      <div class="field">
+        <label>Cote</label>
+        <input id="mOdd" type="text" inputmode="decimal" placeholder="1,52" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Marge</label>
+        <div class="inwrap">
+          <input id="mMargin" type="text" inputmode="decimal" value="12" autocomplete="off">
+          <span class="suf">%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="duo">
+      <div class="mcard">
+        <div class="result-label">MPTO</div>
+        <div class="mval off" id="mptoV">—</div>
+        <div class="msub">Opposé <b id="mptoO">—</b></div>
+      </div>
+      <div class="mcard">
+        <div class="result-label">Log</div>
+        <div class="mval off" id="logV">—</div>
+        <div class="msub">Opposé <b id="logO">—</b></div>
+      </div>
+    </div>
+
+    <div class="mnote" id="mNote">Cote juste (sans marge) · marché à 2 issues</div>
+  </section>
 </main>
 
-<footer>kelly / 3 · <span>conservateur</span></footer>
+<footer id="foot">kelly / 3 · <span>conservateur</span></footer>
 
 <script>
   const $ = id => document.getElementById(id);
   const ref = $('ref'), bet = $('bet');
-  const pct = $('pct'), verdict = $('verdict'),
-        k6 = $('k6'), k12 = $('k12'), result = $('result');
+  const pct = $('pct'), verdict = $('verdict'), result = $('result');
+  const meta = $('meta'), resLabel = $('resLabel'), logoK = $('logoK'),
+        foot = $('foot'), picker = $('picker');
 
   const parse = v => {
     if (!v) return NaN;
@@ -237,16 +383,60 @@
   };
   const fmtFR = (n, d=2) => n.toLocaleString('fr-FR', {minimumFractionDigits: d, maximumFractionDigits: d});
 
+  /* ---------- Choix de la fraction de Kelly ---------- */
+  // Pour ajouter une option (ex. 2 ou 4), il suffit de la mettre dans cette liste.
+  const FRACTIONS = [3, 4, 6];
+  const DEFAULT_K = 3;
+  const STORE_KEY = 'kelly.fraction';
+  const tagFor = k => k <= 3 ? 'conservateur' : k <= 6 ? 'très conservateur' : 'ultra conservateur';
+
+  function loadK() {
+    try {
+      const v = parseInt(localStorage.getItem(STORE_KEY), 10);
+      if (FRACTIONS.includes(v)) return v;
+    } catch (e) {}
+    return DEFAULT_K;
+  }
+  let K = loadK();
+
+  picker.innerHTML = FRACTIONS.map(f =>
+    `<button type="button" class="pick" data-k="${f}" aria-label="Kelly sur ${f}" aria-pressed="false">/${f}</button>`
+  ).join('');
+  picker.addEventListener('click', e => {
+    const b = e.target.closest('.pick');
+    if (b) setK(parseInt(b.dataset.k, 10));
+  });
+
+  function setK(k, save = true) {
+    K = k;
+    if (save) { try { localStorage.setItem(STORE_KEY, String(k)); } catch (e) {} }
+    picker.querySelectorAll('.pick').forEach(b =>
+      b.setAttribute('aria-pressed', String(parseInt(b.dataset.k, 10) === k))
+    );
+    logoK.textContent = '/' + k;
+    resLabel.textContent = 'Mise recommandée · kelly/' + k;
+    foot.innerHTML = 'kelly / ' + k + ' · <span>' + tagFor(k) + '</span>';
+    compute();
+  }
+
+  /* ---------- Calcul Kelly (inchangé, fraction variable) ---------- */
+  function renderMeta(others, vals) {
+    meta.innerHTML = others.map((f, i) =>
+      `<div class="meta-item"><span class="k">Kelly/${f}</span><span class="v">${vals ? vals[i] : '—'}</span></div>`
+    ).join('');
+  }
+
   function compute() {
     const oRef = parse(ref.value);
     const oBet = parse(bet.value);
+    const others = FRACTIONS.filter(f => f !== K);
 
     result.classList.remove('negative', 'warn');
 
     if (!oRef || !oBet || oRef <= 1 || oBet <= 1) {
       pct.textContent = '—';
       verdict.textContent = 'Entre les deux cotes pour calculer.';
-      k6.textContent = k12.textContent = '—';
+      renderMeta(others, null);
       return;
     }
 
@@ -254,35 +444,91 @@
     const q = 1 - p;
     const b = oBet - 1;
     const kellyFull = (b * p - q) / b;
-    const kellyThird = kellyFull / 3;
-    const kellySixth = kellyFull / 6;
-    const kellyTwelfth = kellyFull / 12;
 
     if (kellyFull <= 0) {
       pct.textContent = '0,00';
       verdict.textContent = 'Aucune value. Ne pas miser : la cote pariée est défavorable.';
       result.classList.add('negative');
-      k6.textContent = fmtFR(0, 2) + ' %';
-      k12.textContent = fmtFR(0, 2) + ' %';
+      renderMeta(others, others.map(() => fmtFR(0, 2) + ' %'));
       return;
     }
 
-    const stakePct = kellyThird * 100;
-    pct.textContent = fmtFR(stakePct, 2);
-    k6.textContent = fmtFR(kellySixth * 100, 2) + ' %';
-    k12.textContent = fmtFR(kellyTwelfth * 100, 2) + ' %';
+    const stakePct = kellyFull / K * 100;
+    // Les seuils d’alerte restent calés sur l’edge (équivalent kelly/3), quelle que soit la fraction choisie
+    const refPct = kellyFull / 3 * 100;
 
-    if (stakePct < 0.5) {
+    pct.textContent = fmtFR(stakePct, 2);
+    renderMeta(others, others.map(f => fmtFR(kellyFull / f * 100, 2) + ' %'));
+
+    if (refPct < 0.5) {
       verdict.textContent = 'Value marginale. Mise très faible — à toi de voir si ça vaut le coup.';
       result.classList.add('warn');
-    } else if (stakePct > 8) {
+    } else if (refPct > 8) {
       verdict.textContent = 'Edge très élevé. Vérifie tes cotes — méfie-toi des erreurs ou pièges.';
       result.classList.add('warn');
     } else {
-      verdict.textContent = 'Value positive. Mise selon Kelly fractionné (÷3).';
+      verdict.textContent = 'Value positive. Mise selon Kelly fractionné (÷' + K + ').';
     }
   }
 
+  /* ---------- Ajouter une marge à une cote (marché à 2 issues) ----------
+     Cote juste -> cote avec marge M (overround = 1 + M), formules du site True Odds :
+     • MPTO : Of = n·Oi / (n − M·Oi)  =>  Oi = n·Of / (n + M·Of)
+     • Log  : Σ(1/Oi)^c = 1, Of = Oi^c  =>  Oi = Of^(1/c) ; on cherche l’exposant e = 1/c < 1
+              tel que p^e + q^e = 1 + M, puis Oi = 1 / p^e                                   */
+  const mOdd = $('mOdd'), mMargin = $('mMargin');
+  const mptoV = $('mptoV'), mptoO = $('mptoO'), logV = $('logV'), logO = $('logO'), mNote = $('mNote');
+  const N_OUTCOMES = 2;
+  const NOTE_IDLE = 'Cote juste (sans marge) · marché à 2 issues';
+
+  const mptoOdds = (fair, M) => N_OUTCOMES * fair / (N_OUTCOMES + M * fair);
+
+  function logOdds(fair, M) {
+    const p = 1 / fair, q = 1 - p, target = 1 + M;
+    if (target >= N_OUTCOMES) return null;
+    let lo = 0, hi = 1; // somme(0)=2 > cible > somme(1)=1
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      if (Math.pow(p, mid) + Math.pow(q, mid) > target) lo = mid; else hi = mid;
+    }
+    const e = (lo + hi) / 2;
+    return { odd: Math.pow(p, -e), opp: Math.pow(q, -e) };
+  }
+
+  function setCard(valEl, oppEl, odd, opp) {
+    const ok = odd != null && isFinite(odd) && odd > 1;
+    valEl.textContent = ok ? fmtFR(odd, 2) : '—';
+    valEl.classList.toggle('off', !ok);
+    oppEl.textContent = ok && opp != null && isFinite(opp) && opp > 1 ? fmtFR(opp, 2) : '—';
+    return ok;
+  }
+
+  function computeMargin() {
+    const fair = parse(mOdd.value);
+    const m = parse(mMargin.value);
+
+    if (!fair || fair <= 1 || isNaN(m) || m < 0) {
+      setCard(mptoV, mptoO, null);
+      setCard(logV, logO, null);
+      mNote.textContent = NOTE_IDLE;
+      return;
+    }
+
+    const M = m / 100;
+    const oppFair = fair / (fair - 1);
+    const notes = ['Marché à 2 issues · overround ' + fmtFR(100 + m, 2) + ' %'];
+
+    const okM = setCard(mptoV, mptoO, mptoOdds(fair, M), mptoOdds(oppFair, M));
+    if (!okM) notes.push('MPTO : cote < 1,00, marge trop forte pour cette cote');
+
+    const lg = logOdds(fair, M);
+    if (lg) setCard(logV, logO, lg.odd, lg.opp);
+    else { setCard(logV, logO, null); notes.push('Log impossible avec une marge ≥ 100 %'); }
+
+    mNote.innerHTML = notes.join('<br>');
+  }
+
+  /* ---------- Événements ---------- */
   [ref, bet].forEach(el => {
     el.addEventListener('input', compute);
     el.addEventListener('blur', () => {
@@ -290,6 +536,18 @@
       if (!isNaN(n) && el.value) el.value = String(el.value).replace('.', ',');
     });
   });
+
+  [mOdd, mMargin].forEach(el => {
+    el.addEventListener('input', computeMargin);
+    el.addEventListener('blur', () => {
+      const n = parse(el.value);
+      if (!isNaN(n) && el.value) el.value = String(el.value).replace('.', ',');
+    });
+  });
+  mMargin.addEventListener('focus', () => setTimeout(() => mMargin.select(), 0));
+
+  setK(K, false);
+  computeMargin();
 </script>
 </body>
 </html>

@@ -258,10 +258,11 @@
   .mval {
     font-family: 'Fraunces', serif;
     font-weight: 300;
-    font-size: 44px;
+    font-size: 40px;
     line-height: 1;
     letter-spacing: -0.03em;
     color: var(--accent);
+    white-space: nowrap;
   }
   .mval.off { color: var(--ink-dim); }
   .msub {
@@ -335,11 +336,11 @@
   </div>
 
   <section class="tool" id="marginTool">
-    <div class="tool-head">Ajouter une marge</div>
+    <div class="tool-head">Retirer la marge</div>
 
     <div class="row">
       <div class="field">
-        <label>Cote</label>
+        <label>Cote affichée</label>
         <input id="mOdd" type="text" inputmode="decimal" placeholder="1,52" autocomplete="off">
       </div>
       <div class="field">
@@ -364,7 +365,7 @@
       </div>
     </div>
 
-    <div class="mnote" id="mNote">Cote juste (sans marge) · marché à 2 issues</div>
+    <div class="mnote" id="mNote">Cote affichée + marge du marché · marché à 2 issues</div>
   </section>
 </main>
 
@@ -471,43 +472,57 @@
     }
   }
 
-  /* ---------- Ajouter une marge à une cote (marché à 2 issues) ----------
-     Cote juste -> cote avec marge M (overround = 1 + M), formules du site True Odds :
-     • MPTO : Of = n·Oi / (n − M·Oi)  =>  Oi = n·Of / (n + M·Of)
-     • Log  : Σ(1/Oi)^c = 1, Of = Oi^c  =>  Oi = Of^(1/c) ; on cherche l’exposant e = 1/c < 1
-              tel que p^e + q^e = 1 + M, puis Oi = 1 / p^e                                   */
+  /* ---------- Retirer la marge d’une cote (marché à 2 issues) ----------
+     On entre la cote affichée (ex. 1,60) et la marge du marché M (12 % = overround 112 %).
+     L’autre issue affichée est déduite : 1/Oautre = 1 + M − 1/O.
+     Cotes vraies, formules du site True Odds :
+     • MPTO : Of = n·Oi / (n − M·Oi)  <=>  1/Of = 1/Oi − M/n   (toujours affiché ; ∞ si la proba vraie ≤ 0)
+     • Log  : on cherche c tel que Σ(1/Oi)^c = 1, puis Of = Oi^c
+              (pas de solution quand 1/Oautre ≥ 1, donc masqué au-delà de ce seuil)          */
   const mOdd = $('mOdd'), mMargin = $('mMargin');
   const mptoV = $('mptoV'), mptoO = $('mptoO'), logV = $('logV'), logO = $('logO'), mNote = $('mNote');
   const N_OUTCOMES = 2;
-  const NOTE_IDLE = 'Cote juste (sans marge) · marché à 2 issues';
+  const ODD_DEC = 3;
+  const NOTE_IDLE = 'Cote affichée + marge du marché · marché à 2 issues';
 
-  const mptoOdds = (fair, M) => N_OUTCOMES * fair / (N_OUTCOMES + M * fair);
+  // impl = probabilité implicite affichée de l’issue ; renvoie la cote vraie MPTO
+  const mptoTrue = (impl, M) => {
+    const p = impl - M / N_OUTCOMES;
+    return p > 0 ? 1 / p : Infinity;
+  };
 
-  function logOdds(fair, M) {
-    const p = 1 / fair, q = 1 - p, target = 1 + M;
-    if (target >= N_OUTCOMES) return null;
-    let lo = 0, hi = 1; // somme(0)=2 > cible > somme(1)=1
-    for (let i = 0; i < 80; i++) {
+  function logTrue(o1, o2) {
+    const a = 1 / o1, b = 1 / o2;           // a + b = 1 + M > 1, avec b < 1  =>  c > 1
+    let lo = 1, hi = 2;
+    while (Math.pow(a, hi) + Math.pow(b, hi) > 1 && hi < 1e6) hi *= 2;
+    for (let i = 0; i < 100; i++) {
       const mid = (lo + hi) / 2;
-      if (Math.pow(p, mid) + Math.pow(q, mid) > target) lo = mid; else hi = mid;
+      if (Math.pow(a, mid) + Math.pow(b, mid) > 1) lo = mid; else hi = mid;
     }
-    const e = (lo + hi) / 2;
-    return { odd: Math.pow(p, -e), opp: Math.pow(q, -e) };
+    const c = (lo + hi) / 2;
+    return { c, t1: Math.pow(o1, c), t2: Math.pow(o2, c) };
   }
 
+  const fmtOdd = x => {
+    if (x == null || isNaN(x)) return '—';
+    if (!isFinite(x) || x >= 100000) return '∞';
+    return fmtFR(x, ODD_DEC);
+  };
+
   function setCard(valEl, oppEl, odd, opp) {
-    const ok = odd != null && isFinite(odd) && odd > 1;
-    valEl.textContent = ok ? fmtFR(odd, 2) : '—';
-    valEl.classList.toggle('off', !ok);
-    oppEl.textContent = ok && opp != null && isFinite(opp) && opp > 1 ? fmtFR(opp, 2) : '—';
-    return ok;
+    const v = fmtOdd(odd);
+    valEl.textContent = v;
+    valEl.classList.toggle('off', v === '—');
+    // réduit un peu la taille si le nombre est long, pour qu’il reste dans la carte
+    valEl.style.fontSize = v.length >= 9 ? '22px' : v.length >= 7 ? '28px' : v.length === 6 ? '34px' : '';
+    oppEl.textContent = fmtOdd(opp);
   }
 
   function computeMargin() {
-    const fair = parse(mOdd.value);
+    const o = parse(mOdd.value);
     const m = parse(mMargin.value);
 
-    if (!fair || fair <= 1 || isNaN(m) || m < 0) {
+    if (!o || o <= 1 || isNaN(m) || m < 0) {
       setCard(mptoV, mptoO, null);
       setCard(logV, logO, null);
       mNote.textContent = NOTE_IDLE;
@@ -515,17 +530,28 @@
     }
 
     const M = m / 100;
-    const oppFair = fair / (fair - 1);
-    const notes = ['Marché à 2 issues · overround ' + fmtFR(100 + m, 2) + ' %'];
+    const impO = 1 / o;
+    const impOther = 1 + M - impO;           // proba implicite de l’autre issue affichée
+    let note = 'Overround ' + fmtFR(100 + m, 2) + ' %';
 
-    const okM = setCard(mptoV, mptoO, mptoOdds(fair, M), mptoOdds(oppFair, M));
-    if (!okM) notes.push('MPTO : cote < 1,00, marge trop forte pour cette cote');
+    // MPTO : toujours affiché
+    setCard(mptoV, mptoO, mptoTrue(impO, M), mptoTrue(impOther, M));
 
-    const lg = logOdds(fair, M);
-    if (lg) setCard(logV, logO, lg.odd, lg.opp);
-    else { setCard(logV, logO, null); notes.push('Log impossible avec une marge ≥ 100 %'); }
-
-    mNote.innerHTML = notes.join('<br>');
+    // Log : seulement si une solution existe (autre issue affichée > 1,00) et si le résultat reste raisonnable
+    let lg = null;
+    if (impOther < 1) {
+      const o2 = 1 / impOther;
+      note = 'Autre côté affiché ' + fmtFR(o2, ODD_DEC) + ' · ' + note;
+      const r = logTrue(o, o2);
+      if (isFinite(r.t1) && isFinite(r.t2) && r.t1 < 1000 && r.t2 < 1000) lg = r;
+    }
+    if (lg) {
+      setCard(logV, logO, lg.t1, lg.t2);
+      note += '<br>c (log) = ' + fmtFR(lg.c, 6);
+    } else {
+      setCard(logV, logO, null);
+    }
+    mNote.innerHTML = note;
   }
 
   /* ---------- Événements ---------- */

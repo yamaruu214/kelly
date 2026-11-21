@@ -305,6 +305,83 @@
 
   @media (prefers-reduced-motion: reduce) {
     .result, .field, .tool { animation: none; }
+    .sheet, .overlay { transition: none !important; }
+  }
+
+  /* Mise en € à côté du % */
+  .result-value .eur {
+    margin-left: auto;
+    align-self: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--ink);
+    background: rgba(244,241,234,0.06);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+  .result-value .eur[hidden] { display: none; }
+
+  /* Bouton paramètres (discret, coin haut droit) */
+  .head-right { display: flex; align-items: center; gap: 8px; }
+  .gear {
+    appearance: none; -webkit-appearance: none;
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border: none; background: transparent;
+    color: var(--ink-dim);
+    border-radius: 10px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s, color 0.15s;
+  }
+  .gear:active, .gear:focus-visible { opacity: 1; color: var(--ink); outline: none; }
+  .gear svg { width: 18px; height: 18px; }
+
+  /* Panneau paramètres */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    background: rgba(0,0,0,0.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 11;
+    background: #121212;
+    border-top: 1px solid var(--line);
+    border-radius: 22px 22px 0 0;
+    padding: 18px 22px calc(22px + env(safe-area-inset-bottom));
+    transform: translateY(100%);
+    transition: transform 0.25s ease-out;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-grab {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(244,241,234,0.15);
+    align-self: center;
+  }
+  .sheet-title {
+    font-family: 'Fraunces', serif; font-style: italic; font-weight: 700;
+    font-size: 22px;
+  }
+  .sheet-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.06em;
+    color: var(--ink-dim); line-height: 1.5;
+  }
+  .sheet-btn {
+    appearance: none; -webkit-appearance: none;
+    height: 50px; border-radius: 14px;
+    border: none; background: var(--accent); color: #0a0a0a;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer;
   }
 </style>
 </head>
@@ -313,7 +390,12 @@
 
 <header>
   <div class="logo">kelly<em id="logoK">/3</em></div>
-  <div class="picker" id="picker" role="group" aria-label="Choisir la fraction de Kelly"></div>
+  <div class="head-right">
+    <div class="picker" id="picker" role="group" aria-label="Choisir la fraction de Kelly"></div>
+    <button type="button" class="gear" id="gearBtn" aria-label="Paramètres">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
 </header>
 
 <main>
@@ -330,7 +412,7 @@
 
   <div class="result" id="result">
     <div class="result-label" id="resLabel">Mise recommandée · kelly/3</div>
-    <div class="result-value"><span id="pct">—</span><span class="pct">%</span></div>
+    <div class="result-value"><span id="pct">—</span><span class="pct">%</span><span class="eur" id="eur" hidden>—</span></div>
     <div class="verdict" id="verdict">Entre les deux cotes pour calculer.</div>
     <div class="meta" id="meta"></div>
   </div>
@@ -370,6 +452,21 @@
 </main>
 
 <footer id="foot">kelly / 3 · <span>conservateur</span></footer>
+
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-hidden="true">
+  <div class="sheet-grab"></div>
+  <div class="sheet-title" id="sheetTitle">Paramètres</div>
+  <div class="field">
+    <label for="bk">Bankroll</label>
+    <div class="inwrap">
+      <input id="bk" type="text" inputmode="decimal" placeholder="1000" autocomplete="off">
+      <span class="suf">€</span>
+    </div>
+  </div>
+  <div class="sheet-note">Enregistrée sur cet appareil uniquement. Laisse vide pour masquer la mise en €.</div>
+  <button type="button" class="sheet-btn" id="sheetOk">OK</button>
+</div>
 
 <script>
   const $ = id => document.getElementById(id);
@@ -420,6 +517,24 @@
     compute();
   }
 
+  /* ---------- Bankroll (paramètres, sauvegardée par appareil) ---------- */
+  const BK_KEY = 'kelly.bankroll';
+  const eur = $('eur'), bkIn = $('bk');
+  function loadBk() {
+    try {
+      const v = parseFloat(localStorage.getItem(BK_KEY));
+      if (v > 0) return v;
+    } catch (e) {}
+    return 0;
+  }
+  let BK = loadBk();
+
+  function showEur(frac) {
+    if (!(BK > 0) || frac == null) { eur.hidden = true; return; }
+    eur.hidden = false;
+    eur.textContent = fmtFR(BK * frac, 2) + ' €';
+  }
+
   /* ---------- Calcul Kelly (inchangé, fraction variable) ---------- */
   function renderMeta(others, vals) {
     meta.innerHTML = others.map((f, i) =>
@@ -438,6 +553,7 @@
       pct.textContent = '—';
       verdict.textContent = 'Entre les deux cotes pour calculer.';
       renderMeta(others, null);
+      showEur(null);
       return;
     }
 
@@ -451,6 +567,7 @@
       verdict.textContent = 'Aucune value. Ne pas miser : la cote pariée est défavorable.';
       result.classList.add('negative');
       renderMeta(others, others.map(() => fmtFR(0, 2) + ' %'));
+      showEur(0);
       return;
     }
 
@@ -459,6 +576,7 @@
     const refPct = kellyFull / 3 * 100;
 
     pct.textContent = fmtFR(stakePct, 2);
+    showEur(kellyFull / K);
     renderMeta(others, others.map(f => fmtFR(kellyFull / f * 100, 2) + ' %'));
 
     if (refPct < 0.5) {
@@ -571,6 +689,34 @@
     });
   });
   mMargin.addEventListener('focus', () => setTimeout(() => mMargin.select(), 0));
+
+  /* ---------- Panneau paramètres ---------- */
+  const sheet = $('sheet'), overlay = $('overlay');
+  function saveBk() {
+    const v = parse(bkIn.value);
+    BK = v > 0 ? v : 0;
+    try {
+      if (BK > 0) localStorage.setItem(BK_KEY, String(BK));
+      else localStorage.removeItem(BK_KEY);
+    } catch (e) {}
+    compute();
+  }
+  function openSheet() {
+    bkIn.value = BK > 0 ? String(BK).replace('.', ',') : '';
+    sheet.classList.add('open'); overlay.classList.add('open');
+    sheet.setAttribute('aria-hidden', 'false');
+  }
+  function closeSheet() {
+    saveBk();
+    bkIn.blur();
+    sheet.classList.remove('open'); overlay.classList.remove('open');
+    sheet.setAttribute('aria-hidden', 'true');
+  }
+  $('gearBtn').addEventListener('click', openSheet);
+  $('sheetOk').addEventListener('click', closeSheet);
+  overlay.addEventListener('click', closeSheet);
+  bkIn.addEventListener('input', saveBk);
+  bkIn.addEventListener('keydown', e => { if (e.key === 'Enter') closeSheet(); });
 
   setK(K, false);
   computeMargin();
